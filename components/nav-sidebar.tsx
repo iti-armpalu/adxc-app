@@ -2,22 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-    LayoutDashboard,
-    CreditCard,
-    Activity,
-    Building2,
-    LogOut,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-
-const NAV_ITEMS = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/billing", label: "Billing", icon: CreditCard },
-    { href: "/spending", label: "Spending & limits", icon: Activity },
-    { href: "/organization", label: "Organization", icon: Building2 },
-];
+import { NAV_ITEMS } from "@/config/nav-items";
 
 export function NavSidebar() {
     const pathname = usePathname();
