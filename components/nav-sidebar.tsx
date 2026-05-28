@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,13 @@ import { NAV_ITEMS } from "@/config/nav-items";
 
 export function NavSidebar() {
     const pathname = usePathname();
+    const router = useRouter();
+
+    function handleSignOut() {
+        // TODO: clear auth token once Rob's auth is wired
+        // e.g. document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+        router.push("/login");
+    }
 
     return (
         <div className="flex flex-col w-[240px] h-full bg-sidebar border-r border-sidebar-border shrink-0">
@@ -55,9 +62,7 @@ export function NavSidebar() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start gap-2.5 h-9 px-3 text-[13px] font-medium tracking-[-0.025em] text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    onClick={() => {
-                        // TODO: clear token and redirect to /login
-                    }}
+                    onClick={handleSignOut}
                 >
                     <LogOut size={15} strokeWidth={1.6} />
                     Sign out
