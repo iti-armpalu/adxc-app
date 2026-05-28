@@ -413,8 +413,8 @@
     --card: #ffffff;
     --card-foreground: var(--color-neutral-950);
 
-    --popover: oklch(0% 0 0 / 1.00);
-    --popover-foreground: oklch(100% 0 0 / 1.00);
+    --popover: #000000;
+    --popover-foreground: #ffffff;
 
     --radius: var(--radius-xl);
 
@@ -488,8 +488,8 @@
     --card: var(--color-neutral-900);
     --card-foreground: oklch(100% 0 0 / 1.00);
 
-    --popover: oklch(100% 0 0 / 1.00);
-    --popover-foreground: oklch(0% 0 0 / 1.00);
+    --popover: #ffffff;
+    --popover-foreground: #000000;
 
     --warning: var(--color-orange-500);
     --success: var(--color-emerald-500);
