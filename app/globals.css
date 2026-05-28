@@ -5,7 +5,7 @@
    ADXC DS — globals.css
    Generated from Figma variables (ADXC DS Copy)
 
-   ⚠ Requires Manrope to be loaded before use:
+   NOTE: Requires Manrope to be loaded before use:
 
    // layout.tsx
    import { Manrope } from "next/font/google"
@@ -17,7 +17,7 @@
    Structure:
      1. @theme   — primitive tokens (raw colors, type, radii,
                    shadows). Hex as-is from Figma.
-                   ⚠ Shadow + opacity tokens use oklch for alpha.
+                   NOTE: Shadow + opacity tokens use oklch for alpha.
      2. @layer base
         :root    — semantic / shadcn/ui variables (light mode)
         .dark    — semantic overrides (dark mode)
@@ -116,6 +116,21 @@
   --color-blue-800: #192535;
   --color-blue-900: #152020;
   --color-blue-950: #0C171A;
+
+  /* ----------------------------------------------------------
+     RAW COLORS — purple-sys
+  ---------------------------------------------------------- */
+  --color-purple-50: #FAF6FA;
+  --color-purple-100: #F2EAF2;
+  --color-purple-200: #E3D2E2;
+  --color-purple-300: #CCADCB;
+  --color-purple-400: #AE7EAB;
+  --color-purple-500: #8C5C89;
+  --color-purple-600: #703D6E;
+  --color-purple-700: #592A58;
+  --color-purple-800: #452044;
+  --color-purple-900: #341632;
+  --color-purple-950: #220C21;
 
   /* ----------------------------------------------------------
      RAW COLORS — cyan-sys
