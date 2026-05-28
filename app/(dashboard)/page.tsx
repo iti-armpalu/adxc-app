@@ -1,9 +1,13 @@
 import Link from "next/link";
 import {
     ArrowRight,
-    BarChart2,
-    Zap,
-    DollarSign,
+    AlertTriangle,
+    TrendingUp,
+    TrendingDown,
+    Users,
+    Activity,
+    CreditCard,
+    Clock,
 } from "lucide-react";
 import {
     Card,
@@ -14,22 +18,68 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 // TODO: replace with real API calls
-// GET /v2/orgs/{org_id}/balance  → OrgBalanceResponse
-// GET /v2/orgs/{org_id}          → org object
+// GET /v2/orgs/{org_id}/balance          → OrgBalanceResponse
+// GET /v2/orgs/{org_id}                  → OrgResponse
+// GET /v2/orgs/{org_id}/usage/monthly    → MonthlyUsageResponse
+// GET /v2/orgs/{org_id}/users/active     → ActiveUsersResponse
+// GET /v2/orgs/{org_id}/activity/recent  → RecentActivityResponse
 
 const MOCK = {
+    org_name: "DEPT",
     balance: "372.50",
     currency: "USD",
     spend_this_month: "127.50",
+    spend_last_month: "203.80",
     queries_this_month: 23,
-    internal_data_cost: "0.00",
     avg_per_query: "5.54",
     spend_cap: "500.00",
+    active_users: 7,
+    total_users: 12,
+    // Recent top-ups / charges for the activity feed
+    // TODO: wire up GET /v2/orgs/{org_id}/ledger
+    recent_activity: [
+        {
+            id: "act_1",
+            type: "topup",
+            description: "Credit top-up",
+            amount: "+$200.00",
+            ts: "Today, 09:14",
+        },
+        {
+            id: "act_2",
+            type: "query",
+            description: "Query approved — YouGov + Reddit",
+            amount: "-$8.20",
+            ts: "Today, 08:51",
+        },
+        {
+            id: "act_3",
+            type: "query",
+            description: "Query approved — US Census",
+            amount: "-$3.10",
+            ts: "Yesterday, 16:33",
+        },
+        {
+            id: "act_4",
+            type: "query",
+            description: "Query approved — X + QUID",
+            amount: "-$11.40",
+            ts: "Yesterday, 11:02",
+        },
+        {
+            id: "act_5",
+            type: "topup",
+            description: "Credit top-up",
+            amount: "+$500.00",
+            ts: "12 May, 10:00",
+        },
+    ],
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCurrency(value: string) {
     return `$${parseFloat(value).toFixed(2)}`;
@@ -39,30 +89,108 @@ function spendPercent(spent: string, cap: string) {
     return Math.min(Math.round((parseFloat(spent) / parseFloat(cap)) * 100), 100);
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
+function spendDelta(current: string, previous: string) {
+    const curr = parseFloat(current);
+    const prev = parseFloat(previous);
+    if (prev === 0) return null;
+    const pct = Math.round(((curr - prev) / prev) * 100);
+    return pct;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface StatCardProps {
     label: string;
     value: string;
     sub?: string;
-    highlight?: boolean;
+    delta?: number | null; // positive = increase, negative = decrease
 }
 
-function StatCard({ label, value, sub, highlight }: StatCardProps) {
+function StatCard({ label, value, sub, delta }: StatCardProps) {
+    const isUp = delta !== null && delta !== undefined && delta > 0;
+    const isDown = delta !== null && delta !== undefined && delta < 0;
+
     return (
-        <Card className={highlight ? "border-emerald-200 bg-emerald-50" : ""}>
+        <Card>
             <CardContent className="pt-5 pb-5">
                 <p className="text-xs text-muted-foreground font-medium tracking-wide mb-1">
                     {label}
                 </p>
-                <p className={`text-h4 font-bold tracking-[-0.02em] ${highlight ? "text-emerald-700" : "text-foreground"}`}>
+                <p className="text-xl font-bold tracking-[-0.02em] text-foreground">
                     {value}
                 </p>
-                {sub && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
-                )}
+                <div className="flex items-center gap-1.5 mt-1">
+                    {sub && (
+                        <p className="text-xs text-muted-foreground">{sub}</p>
+                    )}
+                    {delta !== null && delta !== undefined && (
+                        <span
+                            className={`inline-flex items-center gap-0.5 text-xs font-medium ${isDown
+                                    ? "text-emerald-700" // less spend = good
+                                    : isUp
+                                        ? "text-orange-600"
+                                        : "text-muted-foreground"
+                                }`}
+                        >
+                            {isDown ? (
+                                <TrendingDown size={11} />
+                            ) : isUp ? (
+                                <TrendingUp size={11} />
+                            ) : null}
+                            {Math.abs(delta)}% vs last month
+                        </span>
+                    )}
+                </div>
             </CardContent>
         </Card>
+    );
+}
+
+interface ActivityRowProps {
+    type: string;
+    description: string;
+    amount: string;
+    ts: string;
+    isLast: boolean;
+}
+
+function ActivityRow({ type, description, amount, ts, isLast }: ActivityRowProps) {
+    const isTopup = type === "topup";
+    return (
+        <div
+            className={`flex items-center justify-between py-3 ${!isLast ? "border-b border-border" : ""
+                }`}
+        >
+            <div className="flex items-center gap-3 min-w-0">
+                <div
+                    className={`w-7 h-7 rounded flex items-center justify-center shrink-0 ${isTopup
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-brand-50 text-brand-600"
+                        }`}
+                >
+                    {isTopup ? (
+                        <CreditCard size={13} />
+                    ) : (
+                        <Activity size={13} />
+                    )}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                        {description}
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock size={10} />
+                        {ts}
+                    </p>
+                </div>
+            </div>
+            <span
+                className={`text-sm font-semibold shrink-0 ml-4 tabular-nums ${isTopup ? "text-emerald-700" : "text-foreground"
+                    }`}
+            >
+                {amount}
+            </span>
+        </div>
     );
 }
 
@@ -72,23 +200,37 @@ export default function DashboardPage() {
     const percent = spendPercent(MOCK.spend_this_month, MOCK.spend_cap);
     const isWarning = percent >= 70 && percent < 100;
     const isBlocked = percent >= 100;
+    const isLowBalance = parseFloat(MOCK.balance) < 50;
+    const delta = spendDelta(MOCK.spend_this_month, MOCK.spend_last_month);
 
     return (
         <div className="flex flex-col gap-8 p-8 max-w-4xl">
 
-            {/* ── Welcome ── */}
+            {/* ── Page title ── */}
             <div>
-                <h2>
-                    Good morning
-                </h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                    Here's your account overview for DEPT.
+                <p className="text-sm font-medium text-muted-foreground mb-0.5">
+                    {MOCK.org_name}
                 </p>
+                <h2>Account overview</h2>
             </div>
 
             {/* ── Balance card ── */}
-            <Card className="bg-brand-600 border-brand-600 text-white">
+            <Card
+                className={
+                    isLowBalance
+                        ? "border-destructive bg-destructive text-white"
+                        : "bg-brand-600 border-brand-600 text-white"
+                }
+            >
                 <CardContent className="pt-6 pb-6">
+                    {isLowBalance && (
+                        <div className="flex items-center gap-1.5 mb-3 opacity-90">
+                            <AlertTriangle size={13} />
+                            <p className="text-xs font-semibold uppercase tracking-wide">
+                                Low balance — top up to continue queries
+                            </p>
+                        </div>
+                    )}
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex flex-col gap-1">
                             <p className="text-sm text-brand-200 font-medium">
@@ -118,9 +260,9 @@ export default function DashboardPage() {
             {/* ── This month's usage ── */}
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground tracking-[-0.01em]">
+                    <p className="text-sm font-semibold text-foreground tracking-[-0.01em]">
                         This month's usage
-                    </h3>
+                    </p>
                     <Badge variant="secondary" className="text-xs font-medium">
                         May 2026
                     </Badge>
@@ -130,21 +272,22 @@ export default function DashboardPage() {
                     <StatCard
                         label="Total spent"
                         value={formatCurrency(MOCK.spend_this_month)}
+                        delta={delta}
                     />
                     <StatCard
                         label="Queries run"
                         value={MOCK.queries_this_month.toString()}
-                        sub="reports purchased"
-                    />
-                    <StatCard
-                        label="Internal data"
-                        value={formatCurrency(MOCK.internal_data_cost)}
-                        sub="always free"
-                        highlight
+                        sub="this month"
                     />
                     <StatCard
                         label="Avg. per query"
                         value={formatCurrency(MOCK.avg_per_query)}
+                    />
+                    <StatCard
+                        label="Active users"
+                        value={`${MOCK.active_users} of ${MOCK.total_users}`}
+                        sub="used platform this month"
+                    // TODO: wire up GET /v2/orgs/{org_id}/users/active
                     />
                 </div>
             </div>
@@ -164,13 +307,14 @@ export default function DashboardPage() {
                         </Link>
                     </div>
                     <CardDescription>
-                        {formatCurrency(MOCK.spend_this_month)} of {formatCurrency(MOCK.spend_cap)} used
+                        {formatCurrency(MOCK.spend_this_month)} of{" "}
+                        {formatCurrency(MOCK.spend_cap)} used
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-muted rounded-xs overflow-hidden">
                         <div
-                            className={`h-full rounded-full transition-all duration-500 ${isBlocked
+                            className={`h-full rounded-xs transition-all duration-500 ${isBlocked
                                     ? "bg-destructive"
                                     : isWarning
                                         ? "bg-orange-500"
@@ -188,7 +332,7 @@ export default function DashboardPage() {
                                 Limit reached — queries blocked
                             </span>
                         )}
-                        {isWarning && (
+                        {isWarning && !isBlocked && (
                             <span className="text-xs font-semibold text-orange-600">
                                 Approaching limit
                             </span>
@@ -197,70 +341,83 @@ export default function DashboardPage() {
                 </CardContent>
             </Card>
 
-            <Separator />
-
-            {/* ── Quick actions ── */}
-            <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-foreground tracking-[-0.01em]">
-                    Quick actions
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer group">
-                        <Link href="/billing">
-                            <CardContent className="pt-5 pb-5 flex items-start gap-3">
-                                <div className="w-8 h-8 rounded bg-brand-50 flex items-center justify-center shrink-0">
-                                    <DollarSign size={15} className="text-brand-600" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                                        View billing
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        Balance, usage and payment history
-                                    </p>
-                                </div>
-                            </CardContent>
+            {/* ── Users at a glance ── */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold">
+                            Users
+                        </CardTitle>
+                        <Link
+                            href="/users"
+                            className="text-xs text-primary hover:underline font-medium"
+                        >
+                            Manage users
                         </Link>
-                    </Card>
-
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer group">
-                        <Link href="/spending">
-                            <CardContent className="pt-5 pb-5 flex items-start gap-3">
-                                <div className="w-8 h-8 rounded bg-brand-50 flex items-center justify-center shrink-0">
-                                    <BarChart2 size={15} className="text-brand-600" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                                        Spending & limits
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        Set your monthly spend cap
-                                    </p>
-                                </div>
-                            </CardContent>
+                    </div>
+                    <CardDescription>
+                        {MOCK.active_users} of {MOCK.total_users} members active this month
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                    {/* Seat utilisation bar */}
+                    <div className="w-full h-2 bg-muted rounded-xs overflow-hidden">
+                        <div
+                            className="h-full rounded-xs bg-primary transition-all duration-500"
+                            style={{
+                                width: `${Math.round(
+                                    (MOCK.active_users / MOCK.total_users) * 100
+                                )}%`,
+                            }}
+                        />
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-muted-foreground">
+                            {Math.round(
+                                (MOCK.active_users / MOCK.total_users) * 100
+                            )}
+                            % seat utilisation
+                        </span>
+                        <Link
+                            href="/users/invite"
+                            className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+                        >
+                            <Users size={11} />
+                            Invite member
                         </Link>
-                    </Card>
+                    </div>
+                </CardContent>
+            </Card>
 
-                    <Card className="hover:border-primary/50 transition-colors cursor-pointer group">
-                        <Link href="/organization">
-                            <CardContent className="pt-5 pb-5 flex items-start gap-3">
-                                <div className="w-8 h-8 rounded bg-brand-50 flex items-center justify-center shrink-0">
-                                    <Zap size={15} className="text-brand-600" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                                        Organization
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        Manage your org details
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Link>
-                    </Card>
-
+            {/* ── Recent activity ── */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground tracking-[-0.01em]">
+                        Recent activity
+                    </p>
+                    <Link
+                        href="/billing"
+                        className="text-xs text-primary hover:underline font-medium"
+                    >
+                        View full ledger
+                    </Link>
                 </div>
+
+                {/* TODO: wire up GET /v2/orgs/{org_id}/ledger?limit=5 */}
+                <Card>
+                    <CardContent className="pt-1 pb-1 px-5">
+                        {MOCK.recent_activity.map((item, i) => (
+                            <ActivityRow
+                                key={item.id}
+                                type={item.type}
+                                description={item.description}
+                                amount={item.amount}
+                                ts={item.ts}
+                                isLast={i === MOCK.recent_activity.length - 1}
+                            />
+                        ))}
+                    </CardContent>
+                </Card>
             </div>
 
         </div>
