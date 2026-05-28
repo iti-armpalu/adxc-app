@@ -1,51 +1,67 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* ============================================
-   ADXC Design System — globals.css
-   Tailwind v4
-   ============================================ */
+/* ============================================================
+   ADXC DS — globals.css
+   Generated from Figma variables (ADXC DS Copy)
 
-/* ============================================
-   @THEME — Tailwind reads this to generate
-   utility classes like bg-primary, text-foreground
-   Put actual values here, not `initial`
-   ============================================ */
+   ⚠ Requires Manrope to be loaded before use:
+
+   // layout.tsx
+   import { Manrope } from "next/font/google"
+   const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" })
+   export default function RootLayout({ children }) {
+     return <html className={manrope.variable}>...</html>
+   }
+
+   Structure:
+     1. @theme   — primitive tokens (raw colors, type, radii,
+                   shadows). Hex as-is from Figma.
+                   ⚠ Shadow + opacity tokens use oklch for alpha.
+     2. @layer base
+        :root    — semantic / shadcn/ui variables (light mode)
+        .dark    — semantic overrides (dark mode)
+        elements — border + body + h1-h4 auto-styles
+   ============================================================ */
+
 @theme {
 
-  /* Fonts */
-  --font-sans: "Manrope", ui-sans-serif, -apple-system, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  /* ----------------------------------------------------------
+     RAW COLORS — neutral (brand-neutrals in Figma)
+  ---------------------------------------------------------- */
+  --color-neutral-50: #F7F4F5;
+  --color-neutral-100: #EDE6EA;
+  --color-neutral-200: #D8C9D2;
+  --color-neutral-300: #BFA7B6;
+  --color-neutral-400: #9E7F93;
+  --color-neutral-500: #7F5F73;
+  --color-neutral-600: #664950;
+  --color-neutral-700: #52384A;
+  --color-neutral-800: #3F2A39;
+  --color-neutral-900: #2F1F2A;
+  --color-neutral-950: #1F141C;
 
-  /* Brand neutrals (warm mauve) */
-  --color-brand-neutrals-50: #F7F4F6;
-  --color-brand-neutrals-100: #EDE6EA;
-  --color-brand-neutrals-200: #D8C9D2;
-  --color-brand-neutrals-300: #BFA7B6;
-  --color-brand-neutrals-400: #9E7F93;
-  --color-brand-neutrals-500: #7F5F73;
-  --color-brand-neutrals-600: #66495D;
-  --color-brand-neutrals-700: #52384A;
-  --color-brand-neutrals-800: #3F2A39;
-  --color-brand-neutrals-900: #2F1F2A;
-  --color-brand-neutrals-950: #1F141C;
+  /* ----------------------------------------------------------
+     RAW COLORS — tyrian-purple (brand-shades in Figma)
+     Primary brand color. Used for --primary in shadcn/ui.
+  ---------------------------------------------------------- */
+  --color-brand-50: #FFF3F8;
+  --color-brand-100: #FFE5F0;
+  --color-brand-200: #F8C3D7;
+  --color-brand-300: #E8A9B7;
+  --color-brand-400: #CF6F94;
+  --color-brand-500: #B44774;
+  --color-brand-600: #8F1E56;
+  --color-brand-700: #66023C;
+  --color-brand-800: #480133;
+  --color-brand-900: #32002B;
+  --color-brand-950: #1E001A;
 
-  /* Brand shades (Tyrian purple) */
-  --color-brand-shades-50: #FFF3F8;
-  --color-brand-shades-100: #FFE5F0;
-  --color-brand-shades-200: #F8C3D7;
-  --color-brand-shades-300: #E89AB7;
-  --color-brand-shades-400: #CF6F94;
-  --color-brand-shades-500: #B44774;
-  --color-brand-shades-600: #8F1E56;
-  --color-brand-shades-700: #660233;
-  --color-brand-shades-800: #480133;
-  --color-brand-shades-900: #320009;
-  --color-brand-shades-950: #1E000A;
-
-  /* Red */
+  /* ----------------------------------------------------------
+     RAW COLORS — red-sys
+  ---------------------------------------------------------- */
   --color-red-50: #FDF2F2;
-  --color-red-100: #FCE6E6;
+  --color-red-100: #FCE6E8;
   --color-red-200: #F9CACA;
   --color-red-300: #F39A9A;
   --color-red-400: #EA6A6A;
@@ -56,238 +72,524 @@
   --color-red-900: #6F1818;
   --color-red-950: #3B0A0A;
 
-  /* Orange */
-  --color-orange-50: #FFF8ED;
-  --color-orange-100: #FEEDC6;
+  /* ----------------------------------------------------------
+     RAW COLORS — orange-sys
+  ---------------------------------------------------------- */
+  --color-orange-50: #FFFBED;
+  --color-orange-100: #FEEDD6;
   --color-orange-200: #FDD9A8;
   --color-orange-300: #FBBF77;
   --color-orange-400: #F7A94C;
   --color-orange-500: #F0912A;
   --color-orange-600: #DB771A;
-  --color-orange-700: #B85C12;
+  --color-orange-700: #B95C12;
   --color-orange-800: #944712;
   --color-orange-900: #783A12;
   --color-orange-950: #452007;
 
-  /* Emerald */
-  --color-emerald-50: #F2FBF6;
+  /* ----------------------------------------------------------
+     RAW COLORS — emerald-sys
+  ---------------------------------------------------------- */
+  --color-emerald-50: #F2FBF8;
   --color-emerald-100: #E0F5E8;
-  --color-emerald-200: #BDEAD1;
-  --color-emerald-300: #8DDBB3;
-  --color-emerald-400: #5FCB96;
+  --color-emerald-200: #B0EAD1;
+  --color-emerald-300: #80DBB3;
+  --color-emerald-400: #5FCB99;
   --color-emerald-500: #36B87C;
   --color-emerald-600: #249E68;
   --color-emerald-700: #1C7F55;
-  --color-emerald-800: #15533A;
-  --color-emerald-900: #0A2E20;
-  --color-emerald-950: #002418;
+  --color-emerald-800: #186646;
+  --color-emerald-900: #155534;
+  --color-emerald-950: #0A2E20;
 
-  /* Blue */
+  /* ----------------------------------------------------------
+     RAW COLORS — blue-sys
+  ---------------------------------------------------------- */
   --color-blue-50: #EEF2F6;
   --color-blue-100: #D6DEE8;
   --color-blue-200: #B3C2D3;
   --color-blue-300: #8AA3BC;
   --color-blue-400: #5F7FA3;
-  --color-blue-500: #3F5F85;
+  --color-blue-500: #5F5F85;
   --color-blue-600: #24354E;
   --color-blue-700: #1E2C40;
-  --color-blue-800: #15202D;
-  --color-blue-900: #0C131A;
-  --color-blue-950: #060A10;
+  --color-blue-800: #192535;
+  --color-blue-900: #152020;
+  --color-blue-950: #0C171A;
 
-  /* Semantic — light mode defaults
-     These get overridden in .dark via :root */
-  --color-background: #F7F4F6;
-  --color-foreground: #2F1F2A;
-  --color-primary: #8F1E56;
-  --color-primary-foreground: #F7F4F6;
-  --color-secondary: #EDE6EA;
-  --color-secondary-foreground: #2F1F2A;
-  --color-muted: #EDE6EA;
-  --color-muted-foreground: #7F5F73;
-  --color-accent: #EDE6EA;
-  --color-accent-foreground: #2F1F2A;
-  --color-card: #ffffff;
-  --color-card-foreground: #1F141C;
-  --color-border: #D8C9D2;
-  --color-input: #ffffff;
-  --color-ring: #E89AB7;
-  --color-ring-error: #F39A9A;
-  --color-popover: #000000;
-  --color-popover-foreground: #ffffff;
+  /* ----------------------------------------------------------
+     RAW COLORS — cyan-sys
+  ---------------------------------------------------------- */
+  --color-cyan-50: #E6F6F6;
+  --color-cyan-100: #CCEEEE;
+  --color-cyan-200: #99DDDD;
+  --color-cyan-300: #66CCCC;
+  --color-cyan-400: #33B888;
+  --color-cyan-500: #0FA3A3;
+  --color-cyan-600: #008392;
+  --color-cyan-700: #006B78;
+  --color-cyan-800: #005660;
+  --color-cyan-900: #004A4F;
+  --color-cyan-950: #002C32;
 
-  /* Destructive */
-  --color-destructive: #C92A2A;
-  --color-destructive-foreground: #ffffff;
-  --color-destructive-border: #DE3F3F;
-  --color-destructive-text: #C92A2A;
-  --color-destructive-subtle: #FDF2F2;
+  /* ----------------------------------------------------------
+     TYPOGRAPHY
+     Font family: Manrope (sans + headings), system mono
+     All values read directly from Figma typography variables.
+     Letter-spacing converted from px to em per font-size.
+  ---------------------------------------------------------- */
 
-  /* Status */
-  --color-success: #1C7F55;
-  --color-warning: #B85C12;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", monospace;
 
-  /* Brand */
-  --color-brand: #8F1E56;
-  --color-brand-foreground: #ffffff;
+  /* Heading scale */
+  --text-h1: 3rem;
+  --text-h1--line-height: 1;
+  --text-h1--font-weight: 500;
+  --text-h1--letter-spacing: -0.03125em;
 
-  /* Sidebar */
-  --color-sidebar: #ffffff;
-  --color-sidebar-foreground: #52384A;
-  --color-sidebar-accent: #FFE5F0;
-  --color-sidebar-accent-foreground: #2F1F2A;
-  --color-sidebar-primary: #2F1F2A;
-  --color-sidebar-primary-foreground: #F7F4F6;
-  --color-sidebar-border: #D8C9D2;
-  --color-sidebar-ring: #BFA7B6;
+  --text-h2: 1.875rem;
+  --text-h2--line-height: 1;
+  --text-h2--font-weight: 600;
+  --text-h2--letter-spacing: -0.0333em;
 
-  /* Extended */
-  --color-foreground-alt: #52384A;
-  --color-body-background: #ffffff;
-  --color-ghost: transparent;
-  --color-ghost-foreground: #52384A;
-  --color-ghost-hover: rgba(0, 0, 0, 0.05);
-  --color-primary-hover: #660233;
-  --color-secondary-hover: #F7F4F6;
-  --color-backdrop: rgba(0, 0, 0, 0.60);
-  --color-mid-alt: #66495D;
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 1.2;
+  --text-h3--font-weight: 700;
+  --text-h3--letter-spacing: -0.0417em;
 
-  /* Border scale */
-  --color-border-0: #F7F4F6;
-  --color-border-1: #EDE6EA;
-  --color-border-3: #BFA7B6;
-  --color-border-4: #9E7F93;
-  --color-border-5: #7F5F73;
+  --text-h4: 1.25rem;
+  --text-h4--line-height: 1.2;
+  --text-h4--font-weight: 700;
+  --text-h4--letter-spacing: 0em;
 
-  /* Accent scale */
-  --color-accent-0: #F7F4F6;
-  --color-accent-2: #F8C3D7;
-  --color-accent-3: #BFA7B6;
+  /* Paragraph weights — shared across all sizes */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
 
-  /* Chart */
+  /* Paragraph sizes */
+  --text-paragraph-lg: 1.125rem;
+  --text-paragraph-lg--line-height: 1.5;
+
+  --text-paragraph: 1rem;
+  --text-paragraph--line-height: 1.5;
+
+  --text-paragraph-sm: 0.875rem;
+  --text-paragraph-sm--line-height: 1.4286;
+
+  --text-paragraph-xs: 0.75rem;
+  --text-paragraph-xs--line-height: 1.3333;
+
+  /* Monospaced */
+  --text-mono: 1rem;
+  --text-mono--line-height: 1.5;
+  --text-mono--font-weight: 400;
+
+  /* Caption */
+  --text-caption: 0.875rem;
+  --text-caption--line-height: 1.5;
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: 0.1071em;
+
+  /* ----------------------------------------------------------
+     TAILWIND TEXT SCALE MAPPED TO FIGMA SIZES
+     text-xs through text-4xl now match your Figma type scale.
+
+     text-xs   = 12px  paragraph mini
+     text-sm   = 14px  paragraph small
+     text-base = 16px  paragraph regular
+     text-lg   = 18px  paragraph large
+     text-xl   = 20px  heading 4 size
+     text-2xl  = 24px  heading 3 size
+     text-3xl  = 30px  heading 2 size
+     text-4xl  = 48px  heading 1 size
+  ---------------------------------------------------------- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 3rem;
+
+  /* ----------------------------------------------------------
+     BORDER RADII
+  ---------------------------------------------------------- */
+  --radius-none: 0px;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.625rem;
+  --radius-4xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* ----------------------------------------------------------
+     SHADOWS
+     oklch used intentionally — hex cannot express opacity.
+     Each size is composed of 2 stacked layers (from Figma).
+  ---------------------------------------------------------- */
+  --shadow-2xs: 0px 1px 0px 0px oklch(0% 0 0 / 0.05);
+
+  --shadow-xs: 0px 1px 2px 0px oklch(0% 0 0 / 0.05);
+
+  --shadow-sm:
+    0px 1px 3px 0px oklch(0% 0 0 / 0.10),
+    0px 1px 2px -1px oklch(0% 0 0 / 0.10);
+
+  --shadow-md:
+    0px 4px 6px -1px oklch(0% 0 0 / 0.10),
+    0px 2px 4px -2px oklch(0% 0 0 / 0.10);
+
+  --shadow-lg:
+    0px 10px 15px -3px oklch(0% 0 0 / 0.10),
+    0px 4px 6px -4px oklch(0% 0 0 / 0.10);
+
+  --shadow-xl:
+    0px 20px 25px -5px oklch(0% 0 0 / 0.10),
+    0px 8px 10px -6px oklch(0% 0 0 / 0.10);
+
+  --shadow-2xl: 0px 25px 50px -12px oklch(0% 0 0 / 0.10);
+
+  /* ----------------------------------------------------------
+     CHART COLORS
+     Solid hex — pass directly to your charting library.
+     These do NOT auto-switch in dark mode. Handle dark mode
+     in your chart component via props or a useTheme() hook.
+  ---------------------------------------------------------- */
   --color-chart-1: #8F1E56;
   --color-chart-2: #008392;
   --color-chart-3: #24354E;
   --color-chart-4: #DB771A;
   --color-chart-5: #CF6F94;
+
   --color-chart-positive: #1C7F55;
   --color-chart-negative: #DE3F3F;
 
-  /* Border radius */
-  --radius-none: 0px;
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 12px;
-  --radius-3xl: 16px;
-  --radius-full: 9999px;
+  --color-chart-fill: oklch(from #B24F82 l c h / 0.70);
+  --color-chart-stroke: #66023C;
+  --color-chart-fill-2: oklch(from #E2A3C7 l c h / 0.70);
+  --color-chart-stroke-2: #A94C7A;
 
-  /* Shadows */
-  --shadow-2xs: 0px 1px 0px 0px rgba(0, 0, 0, 0.05);
-  --shadow-xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0px 1px 3px 0px rgba(0, 0, 0, 0.10), 0px 1px 2px -1px rgba(0, 0, 0, 0.10);
-  --shadow-md: 0px 4px 6px -1px rgba(0, 0, 0, 0.10), 0px 2px 4px -2px rgba(0, 0, 0, 0.10);
-  --shadow-lg: 0px 10px 15px -3px rgba(0, 0, 0, 0.10), 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
-  --shadow-xl: 0px 20px 25px -5px rgba(0, 0, 0, 0.10), 0px 8px 10px -6px rgba(0, 0, 0, 0.10);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0, 0, 0, 0.10);
+  /* ----------------------------------------------------------
+     ANIMATIONS
+     Defined here so Tailwind generates animate-adxc-* utilities.
+     Usage: className="animate-adxc-spin"
+  ---------------------------------------------------------- */
+  --animate-adxc-spin: adxc-spin 0.8s linear infinite;
+  --animate-adxc-fade: adxc-fade 0.2s ease forwards;
+  --animate-adxc-pop: adxc-pop 0.25s ease forwards;
+  --animate-adxc-fill: adxc-fill 1s ease forwards;
 
 }
 
-/* ============================================
-   DARK MODE OVERRIDES
-   Override semantic tokens only — raw palette
-   stays the same, only roles change
-   ============================================ */
-.dark {
-  --color-background: #1F141C;
-  --color-foreground: #F7F4F6;
-  --color-primary: #8F1E56;
-  --color-primary-foreground: #F7F4F6;
-  --color-secondary: #2F1F2A;
-  --color-secondary-foreground: #EDE6EA;
-  --color-muted: #2F1F2A;
-  --color-muted-foreground: #BFA7B6;
-  --color-accent: #2F1F2A;
-  --color-accent-foreground: #EDE6EA;
-  --color-card: #2F1F2A;
-  --color-card-foreground: #ffffff;
-  --color-border: #52384A;
-  --color-input: rgba(255, 255, 255, 0.05);
-  --color-ring: #660233;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #000000;
 
-  --color-destructive: #9E4042;
-  --color-destructive-foreground: #F7F4F6;
-  --color-destructive-border: #EA6A6A;
-  --color-destructive-text: #EA6A6A;
-  --color-destructive-subtle: rgba(201, 42, 42, 0.15);
+/* ============================================================
+   THEME BRIDGE
+   Maps semantic CSS variables (set in :root / .dark) into
+   Tailwind v4 color utilities. Without this block, classes
+   like bg-primary, text-foreground, border-ring generate but
+   resolve to nothing. @theme inline reads the var() at
+   runtime so dark mode switching works automatically.
+   ============================================================ */
 
-  --color-success: #36B87C;
-  --color-warning: #F0912A;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 
-  --color-brand: #8F1E56;
-  --color-brand-foreground: #E89AB7;
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
-  --color-sidebar: #1F141C;
-  --color-sidebar-foreground: #BFA7B6;
-  --color-sidebar-accent: #2F1F2A;
-  --color-sidebar-accent-foreground: #EDE6EA;
-  --color-sidebar-primary: #F7F4F6;
-  --color-sidebar-primary-foreground: #1F141C;
-  --color-sidebar-border: #3F2A39;
-  --color-sidebar-ring: #52384A;
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 
-  --color-foreground-alt: #BFA7B6;
-  --color-body-background: #1F141C;
-  --color-ghost-foreground: #D8C9D2;
-  --color-ghost-hover: rgba(255, 255, 255, 0.10);
-  --color-primary-hover: #B44774;
-  --color-secondary-hover: #2F1F2A;
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-border-0: #1F141C;
-  --color-border-1: #2F1F2A;
-  --color-border-3: #52384A;
-  --color-border-4: #66495D;
-  --color-border-5: #7F5F73;
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
 
-  --color-chart-1: #E89AB7;
-  --color-chart-2: #33B8B8;
-  --color-chart-3: #5F7FA3;
-  --color-chart-4: #F7A94C;
-  --color-chart-5: #B44774;
-  --color-chart-positive: #5FCB96;
-  --color-chart-negative: #EA6A6A;
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Unofficial ADXC semantic tokens — also available as utilities */
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-destructive-border: var(--destructive-border);
+  --color-destructive-text: var(--destructive-text);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-foreground-alt: var(--foreground-alt);
+  --color-mid-alt: var(--mid-alt);
+  --color-ghost-foreground: var(--ghost-foreground);
+  --color-ghost: var(--ghost);
+  --color-ghost-hover: var(--ghost-hover);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-backdrop: var(--backdrop);
+  --color-outline: var(--outline);
+  --color-outline-hover: var(--outline-hover);
+  --color-outline-active: var(--outline-active);
+  --color-accent-0: var(--accent-0);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-border-0: var(--border-0);
+  --color-border-1: var(--border-1);
+  --color-border-3: var(--border-3);
+  --color-border-4: var(--border-4);
+  --color-border-5: var(--border-5);
+  --color-ring-error: var(--ring-error);
+  --color-sidebar-muted: var(--sidebar-muted);
 }
 
-/* ============================================
-   BASE STYLES
-   ============================================ */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* ============================================================
+   SEMANTIC LAYER + shadcn/ui CSS variable contract
+   :root = light mode   .dark = dark mode
+   ============================================================ */
+
+@layer base {
+
+  :root {
+    --background: var(--color-neutral-50);
+    --foreground: var(--color-neutral-900);
+
+    --primary: var(--color-brand-600);
+    --primary-foreground: var(--color-neutral-50);
+
+    --secondary: var(--color-neutral-100);
+    --secondary-foreground: var(--color-neutral-900);
+
+    --accent: var(--color-neutral-100);
+    --accent-foreground: var(--color-neutral-900);
+
+    --muted: var(--color-neutral-100);
+    --muted-foreground: var(--color-neutral-500);
+
+    --destructive: var(--color-red-600);
+    --destructive-foreground: #ffffff;
+
+    --border: var(--color-neutral-200);
+    --input: var(--color-neutral-200);
+    --ring: var(--color-brand-300);
+
+    --card: #ffffff;
+    --card-foreground: var(--color-neutral-950);
+
+    --popover: oklch(0% 0 0 / 1.00);
+    --popover-foreground: oklch(100% 0 0 / 1.00);
+
+    --radius: var(--radius-xl);
+
+    --warning: var(--color-orange-700);
+    --success: var(--color-emerald-700);
+
+    /* Sidebar */
+    --sidebar: #ffffff;
+    --sidebar-foreground: var(--color-neutral-700);
+    --sidebar-accent: var(--color-neutral-50);
+    --sidebar-accent-foreground: var(--color-neutral-900);
+    --sidebar-primary: var(--color-neutral-900);
+    --sidebar-primary-foreground: var(--color-neutral-50);
+    --sidebar-border: var(--color-neutral-200);
+    --sidebar-ring: var(--color-brand-300);
+
+    /* Unofficial ADXC tokens — use in custom components */
+    --foreground-alt: var(--color-neutral-700);
+    --body-background: #ffffff;
+    --destructive-border: var(--color-red-500);
+    --destructive-text: var(--color-red-600);
+    --destructive-subtle: var(--color-red-50);
+    --backdrop: oklch(0% 0 0 / 0.60);
+    --mid-alt: var(--color-neutral-600);
+    --ghost-foreground: var(--color-neutral-700);
+    --ghost: oklch(100% 0 0 / 0.001);
+    --ghost-hover: oklch(0% 0 0 / 0.05);
+    --primary-hover: var(--color-brand-600);
+    --secondary-hover: var(--color-neutral-50);
+    --outline: oklch(100% 0 0 / 0.10);
+    --outline-hover: oklch(0% 0 0 / 0.333);
+    --outline-active: oklch(0% 0 0 / 0.05);
+
+    --accent-0: var(--color-neutral-50);
+    --accent-2: var(--color-brand-200);
+    --accent-3: var(--color-neutral-300);
+
+    --border-0: var(--color-neutral-50);
+    --border-1: var(--color-neutral-100);
+    --border-3: var(--color-neutral-300);
+    --border-4: var(--color-neutral-400);
+    --border-5: var(--color-neutral-500);
+
+    --ring-error: var(--color-red-300);
+    --sidebar-muted: var(--color-neutral-500);
+  }
+
+  .dark {
+    --background: oklch(0% 0 0 / 1.00);
+    --foreground: var(--color-neutral-50);
+
+    --primary: var(--color-brand-950);
+    --primary-foreground: var(--color-neutral-50);
+
+    --secondary: var(--color-neutral-600);
+    --secondary-foreground: var(--color-neutral-100);
+
+    --accent: var(--color-neutral-900);
+    --accent-foreground: var(--color-neutral-100);
+
+    --muted: var(--color-neutral-900);
+    --muted-foreground: var(--color-neutral-300);
+
+    --destructive: #BE4042;
+    --destructive-foreground: #ffffff;
+
+    --border: var(--color-neutral-700);
+    --input: oklch(100% 0 0 / 0.05);
+    --ring: var(--color-brand-700);
+
+    --card: var(--color-neutral-900);
+    --card-foreground: oklch(100% 0 0 / 1.00);
+
+    --popover: oklch(100% 0 0 / 1.00);
+    --popover-foreground: oklch(0% 0 0 / 1.00);
+
+    --warning: var(--color-orange-500);
+    --success: var(--color-emerald-500);
+
+    --sidebar: var(--color-neutral-950);
+    --sidebar-foreground: var(--color-neutral-300);
+    --sidebar-accent: var(--color-neutral-900);
+    --sidebar-accent-foreground: var(--color-neutral-100);
+    --sidebar-primary: var(--color-neutral-50);
+    --sidebar-primary-foreground: var(--color-neutral-900);
+    --sidebar-border: var(--color-neutral-50);
+    --sidebar-ring: var(--color-neutral-700);
+
+    --foreground-alt: var(--color-neutral-300);
+    --body-background: var(--color-neutral-950);
+    --destructive-border: var(--color-red-500);
+    --destructive-text: var(--color-red-400);
+    --destructive-subtle: var(--color-red-950);
+    --backdrop: oklch(0% 0 0 / 0.60);
+    --mid-alt: var(--color-neutral-400);
+    --ghost-foreground: var(--color-neutral-200);
+    --ghost: oklch(100% 0 0 / 0.001);
+    --ghost-hover: oklch(100% 0 0 / 0.10);
+    --primary-hover: var(--color-neutral-300);
+    --secondary-hover: var(--color-neutral-900);
+    --outline: oklch(100% 0 0 / 0.05);
+    --outline-hover: oklch(100% 0 0 / 0.10);
+    --outline-active: oklch(100% 0 0 / 0.15);
+
+    --accent-0: var(--color-neutral-950);
+    --accent-2: var(--color-neutral-300);
+    --accent-3: var(--color-neutral-700);
+
+    --border-0: var(--color-neutral-950);
+    --border-1: var(--color-neutral-900);
+    --border-3: var(--color-neutral-700);
+    --border-4: var(--color-neutral-600);
+    --border-5: var(--color-neutral-500);
+
+    --ring-error: #B02C2F;
+    --sidebar-muted: var(--color-neutral-500);
+  }
+
+  /* ----------------------------------------------------------
+     BASE ELEMENT DEFAULTS
+  ---------------------------------------------------------- */
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    font-weight: var(--font-weight-regular);
+  }
+
+  /* h1-h4 auto-styled — no class needed in JSX */
+  h1 {
+    font-family: var(--font-heading);
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+    font-weight: var(--text-h1--font-weight);
+    letter-spacing: var(--text-h1--letter-spacing);
+  }
+
+  h2 {
+    font-family: var(--font-heading);
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    font-weight: var(--text-h2--font-weight);
+    letter-spacing: var(--text-h2--letter-spacing);
+  }
+
+  h3 {
+    font-family: var(--font-heading);
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    font-weight: var(--text-h3--font-weight);
+    letter-spacing: var(--text-h3--letter-spacing);
+  }
+
+  h4 {
+    font-family: var(--font-heading);
+    font-size: var(--text-h4);
+    line-height: var(--text-h4--line-height);
+    font-weight: var(--text-h4--font-weight);
+    letter-spacing: var(--text-h4--letter-spacing);
+  }
+
+  /* .text-mono and .text-caption kept as utilities —
+     no standard Tailwind equivalent for these two */
+  .text-mono {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    line-height: var(--text-mono--line-height);
+    font-weight: var(--text-mono--font-weight);
+  }
+
+  .text-caption {
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+    font-weight: var(--text-caption--font-weight);
+    letter-spacing: var(--text-caption--letter-spacing);
+    text-transform: uppercase;
+  }
+
 }
 
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-feature-settings: "ss01", "ss03", "cv11";
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans);
-  font-size: 16px;
-}
-
-/* ============================================
+/* ============================================================
    KEYFRAMES
-   ============================================ */
+   ============================================================ */
+
 @keyframes adxc-spin {
   from {
     transform: rotate(0deg);

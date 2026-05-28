@@ -11,12 +11,12 @@ import {
 
 export function NavRail() {
     return (
-        <div className="flex flex-col items-center justify-between w-12 h-screen bg-brand-shades-700 shrink-0 sticky top-0 py-4 z-50">
+        <div className="flex flex-col items-center justify-between w-12 h-screen bg-brand-700 shrink-0 sticky top-0 py-4 z-50">
 
             {/* Logo */}
             <Link
                 href="/"
-                className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-white/10 transition-colors duration-120"
+                className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-white/10 transition-colors"
             >
                 <Image
                     src="/adxc-logo-white-stacked.svg"
@@ -33,7 +33,7 @@ export function NavRail() {
                 <TooltipTrigger asChild>
                     <button className="rounded-full focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2">
                         <Avatar className="h-8 w-8 cursor-pointer">
-                            <AvatarFallback className="bg-brand-shades-500 text-white text-xs font-semibold">
+                            <AvatarFallback className="bg-brand-500 text-white text-xs font-semibold">
                                 {/* TODO: replace with real initials from API */}
                                 MC
                             </AvatarFallback>

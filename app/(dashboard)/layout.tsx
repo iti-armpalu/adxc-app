@@ -19,9 +19,7 @@ export default function DashboardLayout({
 
                     {/* Top bar — shared across all pages, spans sidebar + content */}
                     <div className="shrink-0 px-4 py-3 bg-card border-b border-border">
-                        <h1 className="text-h4 font-bold text-foreground tracking-[-0.02em]">
-                            Settings
-                        </h1>
+                        <h4>Settings</h4>
                         <p className="text-xs text-muted-foreground mt-0.5">
                             Manage your account and organization preferences
                         </p>

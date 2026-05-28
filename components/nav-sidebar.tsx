@@ -24,12 +24,12 @@ export function NavSidebar() {
                             className={`
                                 flex items-center gap-3 h-9 px-3 rounded
                                 text-sm text-sidebar-foreground tracking-[-0.025em]
-                                transition-all duration-[120ms]
+                                transition-colors duration-100
                                 ${isActive
-                                    ? "bg-sidebar-primary-foreground"
-                                    : "hover:bg-sidebar-primary-foreground"
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                                 }
-              `}
+                            `}
                         >
                             <item.icon size={16} strokeWidth={1.6} />
                             <span>{item.label}</span>
