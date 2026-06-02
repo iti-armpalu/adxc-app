@@ -99,7 +99,7 @@ function LoginForm() {
                 setState("error");
             } else {
                 setState("success");
-                setTimeout(() => router.push("/"), 1600);
+                setTimeout(() => router.push("/admin/overview"), 1600);
             }
         } catch {
             setState("error");

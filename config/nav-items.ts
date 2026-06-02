@@ -1,22 +1,40 @@
+// config/nav-items.ts
+//
+// Admin nav items. Icons from lucide-react.
+// Add new routes here — sidebar renders from this config automatically.
+
 import {
     LayoutDashboard,
-    CreditCard,
-    Activity,
-    Building2,
     Users,
-    type LucideIcon,
+    Building2,
+    SearchCode,
 } from "lucide-react";
 
 export interface NavItem {
-    href: string;
     label: string;
-    icon: LucideIcon;
+    href: string;
+    icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/billing", label: "Billing", icon: CreditCard },
-    { href: "/spending", label: "Spending & limits", icon: Activity },
-    { href: "/organization", label: "Organization", icon: Building2 },
-    { href: "/users", label: "Users", icon: Users },
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+    {
+        label: "Overview",
+        href: "/admin/overview",
+        icon: LayoutDashboard,
+    },
+    {
+        label: "Users",
+        href: "/admin/users",
+        icon: Users,
+    },
+    {
+        label: "Organisations",
+        href: "/admin/organisations",
+        icon: Building2,
+    },
+    {
+        label: "Queries",
+        href: "/admin/queries",
+        icon: SearchCode,
+    },
 ];
