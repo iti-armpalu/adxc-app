@@ -1,38 +1,66 @@
 "use client";
 
-// components/nav-rail.tsx
-//
-// Persistent 48px brand-700 rail. Lives in (app)/layout so it appears
-// on every authenticated surface (admin + member orgs).
-// Extend with icon buttons here as new top-level surfaces are added.
-
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import { Menu, X } from "lucide-react";
 
-export function NavRail() {
+export type NavRailVariant = "admin" | "member";
+
+// NavRail renders differently per breakpoint:
+// Mobile (<md): horizontal top bar with logo + hamburger trigger
+// Desktop (≥md): vertical brand strip on the left
+//
+// The hamburger button dispatches a custom event picked up by AppShell
+// to open/close the mobile sidebar drawer.
+
+export function NavRail({
+    variant = "admin",
+    mobileMenuOpen,
+    onMobileMenuToggle,
+}: {
+    variant?: NavRailVariant;
+    mobileMenuOpen?: boolean;
+    onMobileMenuToggle?: () => void;
+}) {
+    const homeHref = variant === "admin" ? "/admin" : "/organisations";
+
     return (
-        <div className="flex flex-col items-center justify-between w-12 h-screen bg-brand-700 shrink-0 sticky top-0 py-4 z-50">
+        <>
+            {/* ── Desktop: vertical rail ──────────────────────────────────────── */}
+            <div className="hidden md:flex flex-col items-center w-12 h-screen bg-brand-700 shrink-0 sticky top-0 z-50 py-3 gap-6">
+                <Link href={homeHref} className="shrink-0">
+                    <Image
+                        src="/adxc-logo-white-stacked.svg"
+                        alt="ADXC"
+                        width={21}
+                        height={24}
+                        className="w-7 object-contain"
+                        priority
+                    />
+                </Link>
+                <div className="w-5 h-px bg-white/15 shrink-0" />
+            </div>
 
-            {/* Logo — links to admin overview for platform admins */}
-            {/* TODO: route based on user role (admin → /admin/overview, member → /orgs) */}
-            <Link
-                href="/admin/overview"
-                className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-white/10 transition-colors duration-100"
-                aria-label="Go to overview"
-            >
-                <Image
-                    src="/adxc-logo-white-stacked.svg"
-                    alt="ADXC"
-                    width={21}
-                    height={24}
-                    className="w-7 object-contain"
-                    priority
-                />
-            </Link>
-
-            {/* Bottom slot — reserved for future: notifications, user avatar, etc. */}
-            <div />
-
-        </div>
+            {/* ── Mobile: horizontal top bar ──────────────────────────────────── */}
+            <div className="md:hidden flex items-center justify-between px-4 h-12 bg-brand-700 shrink-0 sticky top-0 z-50 w-full">
+                <Link href={homeHref} className="shrink-0">
+                    <Image
+                        src="/adxc-logo-white-stacked.svg"
+                        alt="ADXC"
+                        width={21}
+                        height={24}
+                        className="w-7 object-contain"
+                        priority
+                    />
+                </Link>
+                <button
+                    onClick={onMobileMenuToggle}
+                    className="text-white/70 hover:text-white transition-colors p-1"
+                    aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                >
+                    {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+            </div>
+        </>
     );
 }

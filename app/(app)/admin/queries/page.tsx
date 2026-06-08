@@ -1,399 +1,639 @@
 "use client";
 
-// app/(app)/admin/queries/page.tsx
-//
-// Platform admin — All queries across all organisations.
-// Columns: status, when, org, question, price, paid, answer, trace
-// TODO: wire to real API endpoints
-
-import { useState, useMemo } from "react";
-import { ExternalLink, SlidersHorizontal, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
-    Select, SelectContent, SelectItem,
-    SelectTrigger, SelectValue,
+    Search,
+    ChevronUp,
+    ChevronDown,
+    ChevronsUpDown,
+    X,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// ─── Types + mock data ────────────────────────────────────────────────────────
-// TODO: fetch from GET /admin/queries
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-type QueryStatus = "success" | "pending" | "failed";
-
-type Query = {
-    id: string;
-    org: string;
-    orgId: number;
+type QueryRecord = {
+    uuid: string;
     question: string;
-    status: QueryStatus;
-    price: number;
+    abstract: string;
+    price: string;
     paid: boolean;
-    when: string;
-    hasAnswer: boolean;
-    hasTrace: boolean;
-    answerId?: string;
-    traceId?: string;
+    org_id: number;
+    org_name: string;
+    owner_kind: "member" | "org_automation";
+    owner_username: string | null;
+    created_at: string;
+    paid_at: string | null;
 };
 
-const MOCK_QUERIES: Query[] = [
+type SortKey = "created_at" | "price" | "org_name";
+type SortDir = "asc" | "desc";
+type StatusFilter = "all" | "pending" | "approved";
+type OrgFilter = string[];    // empty = all orgs
+type OwnerFilter = string[];  // empty = all owners; "__api_key__" = API key entries
+
+// ---------------------------------------------------------------------------
+// Mock data
+// TODO: replace with platform-wide queries list endpoint (not yet in spec)
+// Closest existing: GET /v2/orgs/{org_id}/answers — requires known org_id
+// Likely future: GET /v2/admin/queries
+// ---------------------------------------------------------------------------
+
+export const MOCK_QUERIES: QueryRecord[] = [
     {
-        id: "q-001", org: "smoke_test", orgId: 1,
-        question: "Tell me about the demographics of ford fans in the USA",
-        status: "success", price: 22, paid: false,
-        when: "2026-06-01T21:38:14.567850+00:00",
-        hasAnswer: true, hasTrace: true, answerId: "ans-001",
+        uuid: "ans_9a1b2c3d",
+        question: "What are the top purchase drivers for Gen Z consumers in the UK sportswear market?",
+        abstract: "Analysis of 12,400 YouGov panellists aged 18–26 identifies price-performance ratio, sustainability credentials, and influencer endorsement as the top three purchase drivers, with regional variation between London and Northern England.",
+        price: "12.50",
+        paid: false,
+        org_id: 1,
+        org_name: "Unilever Global Insights",
+        owner_kind: "member",
+        owner_username: "sarah.chen",
+        created_at: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
+        paid_at: null,
     },
     {
-        id: "q-002", org: "smoke_test", orgId: 1,
-        question: "How do coke drinkers compare to average americans by age?",
-        status: "success", price: 22, paid: true,
-        when: "2026-06-01T17:06:32.283334+00:00",
-        hasAnswer: true, hasTrace: true, answerId: "ans-002",
+        uuid: "ans_4e5f6g7h",
+        question: "How does Reddit sentiment on EV brands compare to X sentiment in Q1 2025?",
+        abstract: "Reddit shows 34% higher positive sentiment toward EV brands vs X, driven by r/electricvehicles community engagement. Tesla leads on both platforms; BYD shows strongest growth trajectory on Reddit.",
+        price: "8.00",
+        paid: false,
+        org_id: 2,
+        org_name: "Nike Consumer Intelligence",
+        owner_kind: "member",
+        owner_username: "james.whitfield",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+        paid_at: null,
     },
     {
-        id: "q-003", org: "smoke_test", orgId: 1,
-        question: "Tell me about coke fans in US",
-        status: "success", price: 22, paid: true,
-        when: "2026-06-01T15:05:34.073134+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-003",
+        uuid: "ans_8i9j0k1l",
+        question: "What percentage of US households earning over $100k use meal-kit delivery services?",
+        abstract: "US Census and consumer panel data indicates 28.4% penetration among households earning $100k+, up from 19.1% in 2022. HelloFresh and Blue Apron hold combined 61% share of this segment.",
+        price: "6.50",
+        paid: true,
+        org_id: 4,
+        org_name: "Procter & Gamble Brand Strategy",
+        owner_kind: "member",
+        owner_username: "priya.nair",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 8 + 1000 * 60 * 5).toISOString(),
     },
     {
-        id: "q-004", org: "smoke_test", orgId: 1,
-        question: "Tell me about the demographics of coke fans in the UK",
-        status: "success", price: 22, paid: true,
-        when: "2026-06-01T14:08:11.084874+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-004",
+        uuid: "ans_2m3n4o5p",
+        question: "Brand awareness scores for challenger fintech brands among 25–34 year olds in Australia.",
+        abstract: "Afterpay leads unaided awareness at 84% among 25–34 year olds. Revolut shows strongest 12-month growth at +18pp. Traditional bank digital offerings lag on spontaneous recall.",
+        price: "15.00",
+        paid: true,
+        org_id: 1,
+        org_name: "Unilever Global Insights",
+        owner_kind: "org_automation",
+        owner_username: null,
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 14 + 1000 * 60 * 7).toISOString(),
     },
     {
-        id: "q-005", org: "smoke_test", orgId: 1,
-        question: "Tell me about the demographics of coke fans in the UK",
-        status: "success", price: 22, paid: false,
-        when: "2026-06-01T13:56:00.303803+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-005",
+        uuid: "ans_3q4r5s6t",
+        question: "How has Diageo's Guinness brand perception shifted among women aged 21–35 in the US since 2022?",
+        abstract: "Positive brand perception among US women 21–35 has grown from 31% to 49% since 2022, correlating with the 'Belong' campaign. Occasion-based associations have shifted from pub-only to social dining.",
+        price: "18.00",
+        paid: true,
+        org_id: 5,
+        org_name: "Diageo Audience Labs",
+        owner_kind: "member",
+        owner_username: "tom.eriksen",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 8).toISOString(),
     },
     {
-        id: "q-006", org: "smoke_test", orgId: 1,
-        question: "Tell me about the demographics of coke fans",
-        status: "success", price: 22, paid: true,
-        when: "2026-05-31T19:41:31.204679+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-006",
+        uuid: "ans_7u8v9w0x",
+        question: "What are current consumer attitudes toward luxury resale platforms in Western Europe?",
+        abstract: "67% of luxury consumers in France, Germany and the UK view authenticated resale positively, up from 44% in 2021. Vestiaire Collective and Vinted lead aided awareness. Environmental motivation has overtaken value-seeking as primary driver.",
+        price: "22.00",
+        paid: false,
+        org_id: 8,
+        org_name: "LVMH Brand Intelligence",
+        owner_kind: "member",
+        owner_username: "isabelle.martin",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
+        paid_at: null,
     },
     {
-        id: "q-007", org: "smoke_test", orgId: 1,
-        question: "Tell me about economy of USA?",
-        status: "success", price: 22, paid: false,
-        when: "2026-05-31T11:34:44.737288+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-007",
+        uuid: "ans_1y2z3a4b",
+        question: "Spotify vs Apple Music brand loyalty metrics among premium subscribers in the Nordics.",
+        abstract: "Spotify retains 78% annual subscriber loyalty in the Nordics vs Apple Music at 61%. Podcast ecosystem cited as primary retention driver for Spotify; Apple Music loyalty correlates strongly with Apple device ownership.",
+        price: "9.50",
+        paid: true,
+        org_id: 10,
+        org_name: "Spotify Audience Research",
+        owner_kind: "member",
+        owner_username: "anna.lindqvist",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 36 + 1000 * 60 * 4).toISOString(),
     },
     {
-        id: "q-008", org: "Josh_Test", orgId: 2,
-        question: "What are the biggest barriers to consumption for alcohol free beer in the UK?",
-        status: "success", price: 10, paid: true,
-        when: "2026-05-08T08:37:09.008423+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-008",
+        uuid: "ans_5c6d7e8f",
+        question: "How do L'Oréal and Estée Lauder compare on skincare brand trust among Asian consumers in the UK?",
+        abstract: "L'Oréal leads overall skincare trust at 58% vs Estée Lauder at 51% among UK Asian consumers. However, Estée Lauder scores 14pp higher on perceived premium quality and 9pp higher on cultural relevance.",
+        price: "14.00",
+        paid: true,
+        org_id: 3,
+        org_name: "L'Oréal Market Research",
+        owner_kind: "member",
+        owner_username: "mei.zhang",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 48 + 1000 * 60 * 7).toISOString(),
     },
     {
-        id: "q-009", org: "smoke_test", orgId: 1,
-        question: "Tell me about how many people would consider buying coke in the USA",
-        status: "success", price: 10, paid: true,
-        when: "2026-05-06T18:41:14.747893+00:00",
-        hasAnswer: true, hasTrace: false, answerId: "ans-009",
+        uuid: "ans_9g0h1i2j",
+        question: "What is the share of voice for Heineken versus craft beer brands on social media in Germany?",
+        abstract: "Heineken holds 22% share of voice in German beer social conversations, trailing craft collective brands at 31% combined. Instagram and TikTok skew strongly toward craft; Heineken leads on X and YouTube.",
+        price: "11.00",
+        paid: false,
+        org_id: 9,
+        org_name: "Heineken Consumer Insights",
+        owner_kind: "org_automation",
+        owner_username: null,
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 56).toISOString(),
+        paid_at: null,
+    },
+    {
+        uuid: "ans_3k4l5m6n",
+        question: "Consumer willingness to pay premium for sustainable FMCG packaging in the UK.",
+        abstract: "42% of UK consumers indicate willingness to pay 10–15% premium for verified sustainable packaging. Willingness drops sharply above 20% premium. Category matters: household cleaning leads at 51%, confectionery trails at 28%.",
+        price: "10.00",
+        paid: true,
+        org_id: 7,
+        org_name: "Nestlé Strategic Insights",
+        owner_kind: "member",
+        owner_username: "david.okafor",
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 72 + 1000 * 60 * 6).toISOString(),
     },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-function formatRelativeTime(iso: string): string {
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const m = Math.floor(diffMs / 60000);
-    const h = Math.floor(diffMs / 3600000);
-    const d = Math.floor(diffMs / 86400000);
-    if (m < 1) return "Just now";
-    if (m < 60) return `${m}m ago`;
-    if (h < 24) return `${h}h ago`;
-    if (d === 1) return "Yesterday";
-    if (d < 7) return `${d}d ago`;
-    if (d < 30) return `${Math.floor(d / 7)}w ago`;
-    return `${Math.floor(d / 30)}mo ago`;
-}
-
-function formatDateTime(iso: string): string {
-    return new Date(iso).toLocaleString("en-GB", {
-        day: "numeric", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
+function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
     });
 }
 
-// ─── Badges ───────────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<QueryStatus, { label: string; className: string }> = {
-    success: { label: "Success", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-    pending: { label: "Pending", className: "bg-orange-100 text-orange-700 border-orange-200" },
-    failed: { label: "Failed", className: "bg-red-100 text-red-700 border-red-200" },
-};
-
-function StatusBadge({ status }: { status: QueryStatus }) {
-    const c = STATUS_CONFIG[status] ?? STATUS_CONFIG.failed;
-    return (
-        <span className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border whitespace-nowrap",
-            c.className
-        )}>
-            {c.label}
-        </span>
-    );
+function timeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    return `${mins}m ago`;
 }
 
-function PaidBadge({ paid }: { paid: boolean }) {
-    return (
-        <span className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border whitespace-nowrap",
-            paid
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : "bg-neutral-100 text-neutral-500 border-neutral-200"
-        )}>
-            {paid ? "Paid" : "Unpaid"}
-        </span>
-    );
+export function formatCurrency(value: string) {
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+    }).format(parseFloat(value));
 }
 
-// ─── Filters ──────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Sort button
+// ---------------------------------------------------------------------------
 
-const ALL = "_all";
-
-function Filters({
-    statusFilter, paidFilter, orgFilter, orgs,
-    onStatus, onPaid, onOrg, onClear, hasActive,
+function SortButton({
+    col, label, sortKey, sortDir, onSort,
 }: {
-    statusFilter: string; paidFilter: string; orgFilter: string;
-    orgs: string[];
-    onStatus: (v: string) => void; onPaid: (v: string) => void; onOrg: (v: string) => void;
-    onClear: () => void; hasActive: boolean;
+    col: SortKey; label: string; sortKey: SortKey;
+    sortDir: SortDir; onSort: (k: SortKey) => void;
 }) {
+    const active = sortKey === col;
+    const Icon = active ? (sortDir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
     return (
-        <div className="flex items-center gap-2 flex-wrap">
-            <SlidersHorizontal size={14} strokeWidth={1.8} className="text-muted-foreground shrink-0" />
-
-            <Select value={statusFilter} onValueChange={onStatus}>
-                <SelectTrigger className="h-8 w-[130px] text-xs">
-                    <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All statuses</SelectItem>
-                    <SelectItem value="success">Success</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-            </Select>
-
-            <Select value={paidFilter} onValueChange={onPaid}>
-                <SelectTrigger className="h-8 w-[110px] text-xs">
-                    <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>Paid & unpaid</SelectItem>
-                    <SelectItem value="paid">Paid only</SelectItem>
-                    <SelectItem value="unpaid">Unpaid only</SelectItem>
-                </SelectContent>
-            </Select>
-
-            <Select value={orgFilter} onValueChange={onOrg}>
-                <SelectTrigger className="h-8 w-[150px] text-xs">
-                    <SelectValue placeholder="All orgs" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All orgs</SelectItem>
-                    {orgs.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                </SelectContent>
-            </Select>
-
-            {hasActive && (
-                <Button
-                    variant="ghost" size="sm" onClick={onClear}
-                    className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2"
-                >
-                    <X size={12} strokeWidth={2} /> Clear
-                </Button>
-            )}
-        </div>
+        <button
+            onClick={() => onSort(col)}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+            {label}
+            <Icon className={cn("w-3.5 h-3.5", active && "text-primary")} />
+        </button>
     );
 }
 
-// ─── Table ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
-function QueriesTable({ queries }: { queries: Query[] }) {
-    if (queries.length === 0) {
-        return (
-            <div className="rounded-xl border border-border flex items-center justify-center py-16">
-                <p className="text-sm text-muted-foreground">No queries match the current filters.</p>
-            </div>
-        );
+export default function AdminQueriesPage() {
+    const searchParams = useSearchParams();
+    const [queries] = useState<QueryRecord[]>(MOCK_QUERIES);
+    // TODO: replace with platform-wide queries list endpoint
+
+    const [search, setSearch] = useState("");
+    const [status, setStatus] = useState<StatusFilter>("all");
+    const [orgFilter, setOrgFilter] = useState<OrgFilter>([]);
+    const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>([]);
+    const [sortKey, setSortKey] = useState<SortKey>("created_at");
+    const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+    // Read ?status= from URL on mount — allows linking with pre-applied filter
+    useEffect(() => {
+        const s = searchParams.get("status");
+        if (s === "pending" || s === "approved") setStatus(s as StatusFilter);
+    }, [searchParams]);
+
+    function handleSort(key: SortKey) {
+        if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        else { setSortKey(key); setSortDir("asc"); }
     }
 
+    // Unique org names for org filter
+    const orgOptions = useMemo(() => {
+        const names = [...new Set(queries.map((q) => q.org_name))].sort();
+        return names;
+    }, [queries]);
+
+    // Unique member usernames for owner filter
+    const ownerOptions = useMemo(() => {
+        const names = [...new Set(
+            queries
+                .filter((q) => q.owner_kind === "member" && q.owner_username)
+                .map((q) => q.owner_username as string)
+        )].sort();
+        return names;
+    }, [queries]);
+
+    const filtered = useMemo(() => {
+        let list = [...queries];
+        if (status === "pending") list = list.filter((q) => !q.paid);
+        if (status === "approved") list = list.filter((q) => q.paid);
+        if (orgFilter.length > 0) list = list.filter((q) => orgFilter.includes(q.org_name));
+        if (ownerFilter.length > 0) {
+            list = list.filter((q) => {
+                if (ownerFilter.includes("__api_key__") && q.owner_kind === "org_automation") return true;
+                if (q.owner_username && ownerFilter.includes(q.owner_username)) return true;
+                return false;
+            });
+        }
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter(
+                (r) =>
+                    r.question.toLowerCase().includes(q) ||
+                    r.org_name.toLowerCase().includes(q) ||
+                    (r.owner_username ?? "").toLowerCase().includes(q)
+            );
+        }
+        return list.sort((a, b) => {
+            const va = a[sortKey] ?? "";
+            const vb = b[sortKey] ?? "";
+            return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+        });
+    }, [queries, search, status, orgFilter, ownerFilter, sortKey, sortDir]);
+
+    const pendingCount = queries.filter((q) => !q.paid).length;
+    const approvedCount = queries.filter((q) => q.paid).length;
+
+    // Active filter pills
+    const activeFilters = [
+        status !== "all" && {
+            label: status === "pending" ? "Pending" : "Approved",
+            onRemove: () => setStatus("all"),
+        },
+        ...orgFilter.map((org) => ({
+            label: org,
+            onRemove: () => setOrgFilter((prev) => prev.filter((o) => o !== org)),
+        })),
+        ...ownerFilter.map((o) => ({
+            label: o === "__api_key__" ? "API key" : o,
+            onRemove: () => setOwnerFilter((prev) => prev.filter((x) => x !== o)),
+        })),
+    ].filter(Boolean) as { label: string; onRemove: () => void }[];
+
     return (
-        <div className="rounded-xl border border-border overflow-hidden">
-            {/* Header */}
-            <div className="grid grid-cols-[90px_120px_110px_1fr_60px_80px_70px_60px] gap-3 px-5 py-3 bg-accent/50 border-b border-border">
-                {["Status", "When", "Org", "Question", "Price", "Paid", "Answer", "Trace"].map((h, i) => (
-                    <span key={h} className={cn(
-                        "text-xs font-semibold text-muted-foreground uppercase tracking-wider",
-                        i >= 4 && "text-right",
-                        i === 5 && "text-center",
-                        i >= 6 && "text-center",
-                    )}>
-                        {h}
-                    </span>
-                ))}
+        <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
+
+            {/* ── Header ───────────────────────────────────────────────────────── */}
+            <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Queries</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                    All queries across every organisation, most recent first.{" "}
+                    {pendingCount > 0 && (
+                        <span className="text-warning font-medium">
+                            {pendingCount} pending approval.
+                        </span>
+                    )}
+                </p>
             </div>
 
-            {/* Rows */}
-            <div className="divide-y divide-border">
-                {queries.map((q) => (
-                    <div
-                        key={q.id}
-                        className="grid grid-cols-[90px_120px_110px_1fr_60px_80px_70px_60px] gap-3 items-start px-5 py-4 hover:bg-accent/30 transition-colors duration-100"
-                    >
-                        {/* Status */}
-                        <div className="pt-0.5"><StatusBadge status={q.status} /></div>
-
-                        {/* When */}
-                        <span
-                            className="text-xs text-muted-foreground pt-0.5 cursor-default"
-                            title={formatDateTime(q.when)}
-                        >
-                            {formatRelativeTime(q.when)}
-                        </span>
-
-                        {/* Org */}
-                        <div className="pt-0.5 flex flex-col gap-0.5 min-w-0">
-                            <a
-                                href={`/admin/organisations/${q.orgId}`}
-                                className="text-xs font-medium text-foreground hover:text-primary hover:underline transition-colors truncate"
+            {/* ── Toolbar ──────────────────────────────────────────────────────── */}
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                            className="pl-9"
+                            placeholder="Search question, org, member…"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    {/* Status */}
+                    <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+                        <SelectTrigger className="w-36 bg-card text-foreground shrink-0">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card text-card-foreground">
+                            <SelectItem value="all">All statuses</SelectItem>
+                            <SelectItem value="pending">Pending ({pendingCount})</SelectItem>
+                            <SelectItem value="approved">Approved ({approvedCount})</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {/* Org — multi-select dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center gap-2 h-9 px-3 text-sm bg-card text-foreground border border-input rounded shrink-0 hover:bg-accent transition-colors min-w-[11rem]">
+                                <span className="flex-1 text-left truncate">
+                                    {orgFilter.length === 0
+                                        ? "All orgs"
+                                        : orgFilter.length === 1
+                                            ? orgFilter[0]
+                                            : `${orgFilter.length} orgs`
+                                    }
+                                </span>
+                                <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="bg-card text-card-foreground w-56 p-1">
+                            <button
+                                onClick={() => setOrgFilter([])}
+                                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${orgFilter.length === 0 ? "text-foreground font-medium" : "text-muted-foreground"
+                                    }`}
                             >
-                                {q.org}
-                            </a>
-                            <span className="text-[10px] text-muted-foreground font-mono">#{q.orgId}</span>
-                        </div>
-
-                        {/* Question */}
-                        <p className="m-0 text-sm text-foreground tracking-[-0.01em] leading-snug line-clamp-2">
-                            {q.question}
-                        </p>
-
-                        {/* Price */}
-                        <span className="text-sm font-medium text-foreground tabular-nums text-right pt-0.5">
-                            ${q.price}
-                        </span>
-
-                        {/* Paid */}
-                        <div className="flex justify-center pt-0.5">
-                            <PaidBadge paid={q.paid} />
-                        </div>
-
-                        {/* Answer */}
-                        <div className="flex justify-center pt-0.5">
-                            {q.hasAnswer ? (
-                                <a
-                                    href={`/admin/organisations/${q.orgId}/answers/${q.answerId}`}
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
+                                All orgs
+                            </button>
+                            {orgOptions.map((org) => (
+                                <button
+                                    key={org}
+                                    onClick={() => setOrgFilter((prev) =>
+                                        prev.includes(org) ? prev.filter((o) => o !== org) : [...prev, org]
+                                    )}
+                                    className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors text-left"
                                 >
-                                    View <ExternalLink size={10} strokeWidth={2} />
-                                </a>
-                            ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                        </div>
-
-                        {/* Trace */}
-                        <div className="flex justify-center pt-0.5">
-                            {q.hasTrace ? (
-                                <a
-                                    href={`/admin/queries/${q.id}/trace`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
+                                    <span className={`w-3.5 h-3.5 border rounded-xs flex items-center justify-center shrink-0 transition-colors ${orgFilter.includes(org) ? "bg-primary border-primary" : "border-border-3"
+                                        }`}>
+                                        {orgFilter.includes(org) && (
+                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        )}
+                                    </span>
+                                    <span className="truncate">{org}</span>
+                                </button>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* Owner — multi-select by username */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center gap-2 h-9 px-3 text-sm bg-card text-foreground border border-input rounded shrink-0 hover:bg-accent transition-colors min-w-[10rem]">
+                                <span className="flex-1 text-left truncate">
+                                    {ownerFilter.length === 0
+                                        ? "All owners"
+                                        : ownerFilter.length === 1
+                                            ? (ownerFilter[0] === "__api_key__" ? "API key" : ownerFilter[0])
+                                            : `${ownerFilter.length} owners`
+                                    }
+                                </span>
+                                <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="bg-card text-card-foreground w-48 p-1">
+                            <button
+                                onClick={() => setOwnerFilter([])}
+                                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${ownerFilter.length === 0 ? "text-foreground font-medium" : "text-muted-foreground"
+                                    }`}
+                            >
+                                All owners
+                            </button>
+                            {ownerOptions.map((username) => (
+                                <button
+                                    key={username}
+                                    onClick={() => setOwnerFilter((prev) =>
+                                        prev.includes(username) ? prev.filter((o) => o !== username) : [...prev, username]
+                                    )}
+                                    className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors text-left"
                                 >
-                                    Trace <ExternalLink size={10} strokeWidth={2} />
-                                </a>
-                            ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                        </div>
+                                    <span className={`w-3.5 h-3.5 border rounded-xs flex items-center justify-center shrink-0 transition-colors ${ownerFilter.includes(username) ? "bg-primary border-primary" : "border-border-3"
+                                        }`}>
+                                        {ownerFilter.includes(username) && (
+                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        )}
+                                    </span>
+                                    <span className="truncate">{username}</span>
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setOwnerFilter((prev) =>
+                                    prev.includes("__api_key__") ? prev.filter((o) => o !== "__api_key__") : [...prev, "__api_key__"]
+                                )}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors text-left"
+                            >
+                                <span className={`w-3.5 h-3.5 border rounded-xs flex items-center justify-center shrink-0 transition-colors ${ownerFilter.includes("__api_key__") ? "bg-primary border-primary" : "border-border-3"
+                                    }`}>
+                                    {ownerFilter.includes("__api_key__") && (
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                            <path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    )}
+                                </span>
+                                API key
+                            </button>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+
+                {/* Active filter pills */}
+                {activeFilters.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {activeFilters.map((f) => (
+                            <span
+                                key={f.label}
+                                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 border border-border-3 bg-accent text-foreground font-medium"
+                            >
+                                {f.label}
+                                <button
+                                    onClick={f.onRemove}
+                                    className="text-muted-foreground hover:text-foreground transition-colors"
+                                    aria-label={`Remove ${f.label} filter`}
+                                >
+                                    <X size={11} />
+                                </button>
+                            </span>
+                        ))}
+                        {activeFilters.length > 1 && (
+                            <button
+                                onClick={() => { setStatus("all"); setOrgFilter([]); setOwnerFilter([]); }}
+                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Clear all
+                            </button>
+                        )}
                     </div>
-                ))}
+                )}
             </div>
-        </div>
-    );
-}
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function QueriesPage() {
-    const [statusFilter, setStatusFilter] = useState(ALL);
-    const [paidFilter, setPaidFilter] = useState(ALL);
-    const [orgFilter, setOrgFilter] = useState(ALL);
-
-    const orgs = useMemo(() => [...new Set(MOCK_QUERIES.map(q => q.org))].sort(), []);
-
-    const filtered = useMemo(() => MOCK_QUERIES.filter(q => {
-        if (statusFilter !== ALL && q.status !== statusFilter) return false;
-        if (paidFilter !== ALL && (paidFilter === "paid" ? !q.paid : q.paid)) return false;
-        if (orgFilter !== ALL && q.org !== orgFilter) return false;
-        return true;
-    }), [statusFilter, paidFilter, orgFilter]);
-
-    const totalSpend = filtered.reduce((s, q) => s + q.price, 0);
-    const paidCount = filtered.filter(q => q.paid).length;
-    const hasActive = statusFilter !== ALL || paidFilter !== ALL || orgFilter !== ALL;
-
-    return (
-        <div className="p-8 max-w-[1400px] mx-auto flex flex-col gap-6">
-
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                    <h2 className="m-0 text-foreground">Queries</h2>
-                    <p className="m-0 text-sm text-muted-foreground tracking-wide">
-                        Every query across all organisations, most recent first.
+            {/* ── Mobile: card list ──────────────────────────────────────────────── */}
+            <div className="md:hidden flex flex-col gap-3">
+                {filtered.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                        No queries match your search.
                     </p>
-                </div>
-
-                {/* Live summary */}
-                <div className="flex items-center gap-3 shrink-0 pt-1 text-sm">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Showing</span>
-                        <span className="font-semibold text-foreground tabular-nums">{filtered.length}</span>
-                    </div>
-                    <span className="text-border-3 text-xs">·</span>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Paid</span>
-                        <span className="font-semibold text-foreground tabular-nums">
-                            {paidCount}/{filtered.length}
-                        </span>
-                    </div>
-                    <span className="text-border-3 text-xs">·</span>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Revenue</span>
-                        <span className="font-semibold text-foreground tabular-nums">${totalSpend}</span>
-                    </div>
-                </div>
+                )}
+                {filtered.map((query) => {
+                    const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner=${encodeURIComponent(query.owner_username ?? "")}&owner_kind=${query.owner_kind}`;
+                    return (
+                        <Link
+                            key={query.uuid}
+                            href={detailHref}
+                            className="group bg-card border p-4 flex flex-col gap-2.5 hover:border-border-3 transition-colors"
+                        >
+                            <p className="text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                {query.question}
+                            </p>
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xs text-muted-foreground truncate">{query.org_name}</span>
+                                    <span className="text-xs text-muted-foreground shrink-0">· {timeAgo(query.created_at)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-sm font-medium tabular-nums">{formatCurrency(query.price)}</span>
+                                    {query.paid ? (
+                                        <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Approved</Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-xs font-normal text-warning border-warning/40 bg-warning/5">Pending</Badge>
+                                    )}
+                                </div>
+                            </div>
+                        </Link>
+                    );
+                })}
             </div>
 
-            {/* Filters */}
-            <Filters
-                statusFilter={statusFilter}
-                paidFilter={paidFilter}
-                orgFilter={orgFilter}
-                orgs={orgs}
-                onStatus={setStatusFilter}
-                onPaid={setPaidFilter}
-                onOrg={setOrgFilter}
-                onClear={() => { setStatusFilter(ALL); setPaidFilter(ALL); setOrgFilter(ALL); }}
-                hasActive={hasActive}
-            />
+            {/* ── Desktop: table ─────────────────────────────────────────────────── */}
+            <div className="hidden md:block border overflow-hidden bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                            <TableHead className="pl-4 max-w-[360px]">Question</TableHead>
+                            <TableHead>
+                                <SortButton col="org_name" label="Organisation" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                            </TableHead>
+                            <TableHead className="hidden lg:table-cell text-xs text-muted-foreground font-medium">
+                                Owner
+                            </TableHead>
+                            <TableHead className="hidden lg:table-cell">
+                                <SortButton col="created_at" label="Submitted" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                            </TableHead>
+                            <TableHead>
+                                <SortButton col="price" label="Price" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                            </TableHead>
+                            <TableHead className="text-xs text-muted-foreground font-medium pr-4">
+                                Status
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filtered.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                                    No queries match your search.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {filtered.map((query) => {
+                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner=${encodeURIComponent(query.owner_username ?? "")}&owner_kind=${query.owner_kind}`;
+                            return (
+                                <TableRow key={query.uuid} className="group cursor-pointer hover:bg-accent/40">
+                                    <TableCell className="pl-4 max-w-[360px] py-3">
+                                        <Link href={detailHref} className="block">
+                                            <p className="text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                                                {query.question}
+                                            </p>
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        <Link href={`/admin/organisations/${query.org_id}`} className="hover:text-foreground transition-colors">
+                                            {query.org_name}
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className="hidden lg:table-cell">
+                                        {query.owner_kind === "org_automation" ? (
+                                            <Badge variant="outline" className="text-xs font-normal text-muted-foreground">API key</Badge>
+                                        ) : (
+                                            <span className="text-sm text-muted-foreground">{query.owner_username}</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                                        <Link href={detailHref}>
+                                            <span title={formatDate(query.created_at)}>{timeAgo(query.created_at)}</span>
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className="text-sm font-medium tabular-nums">
+                                        <Link href={detailHref}>{formatCurrency(query.price)}</Link>
+                                    </TableCell>
+                                    <TableCell className="pr-4">
+                                        <Link href={detailHref}>
+                                            {query.paid ? (
+                                                <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Approved</Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-xs font-normal text-warning border-warning/40 bg-warning/5">Pending</Badge>
+                                            )}
+                                        </Link>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
 
-            {/* Table */}
-            <QueriesTable queries={filtered} />
+            <p className="text-xs text-muted-foreground pl-1">
+                Showing {filtered.length} of {queries.length} queries
+            </p>
 
         </div>
     );

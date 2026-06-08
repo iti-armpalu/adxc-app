@@ -70,7 +70,7 @@ type FormState = "default" | "loading" | "error" | "success";
 function LoginForm() {
     const router = useRouter();
     const [state, setState] = useState<FormState>("default");
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [showPwd, setShowPwd] = useState(false);
 
@@ -84,11 +84,11 @@ function LoginForm() {
         setState("loading");
 
         try {
-            // TODO: swap simulation for real endpoint once Rob confirms auth
+            // TODO: replace with real auth endpoint
             // const res = await fetch("https://api.adxc.ai/v1/auth/login", {
             //   method: "POST",
             //   headers: { "Content-Type": "application/json" },
-            //   body: JSON.stringify({ email, password }),
+            //   body: JSON.stringify({ username, password }),
             // });
             // if (!res.ok) throw new Error("Unauthorized");
             // const { token } = await res.json();
@@ -99,7 +99,7 @@ function LoginForm() {
                 setState("error");
             } else {
                 setState("success");
-                setTimeout(() => router.push("/admin/overview"), 1600);
+                setTimeout(() => router.push("/admin"), 1600);
             }
         } catch {
             setState("error");
@@ -144,7 +144,7 @@ function LoginForm() {
                         Sign in
                     </h2>
                     <p className="m-0 text-sm text-muted-foreground tracking-wide">
-                        Welcome back. Use your work email.
+                        Welcome back. Use your username.
                     </p>
                 </div>
 
@@ -152,7 +152,7 @@ function LoginForm() {
                 {isError && (
                     <Alert variant="destructive">
                         <AlertCircle size={16} />
-                        <AlertTitle>Invalid email or password</AlertTitle>
+                        <AlertTitle>Invalid username or password</AlertTitle>
                         <AlertDescription>
                             Check your credentials and try again.
                         </AlertDescription>
@@ -163,17 +163,18 @@ function LoginForm() {
                 <div className="flex flex-col gap-[14px]">
 
                     <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="email">
-                            Work email
+                        <Label htmlFor="username">
+                            Username
                         </Label>
                         <Input
-                            id="email"
-                            type="email"
-                            autoComplete="email"
-                            placeholder="you@company.com"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
+                            id="username"
+                            type="text"
+                            autoComplete="username"
+                            placeholder="your username"
+                            value={username}
+                            onChange={e => { setUsername(e.target.value); if (isError) setState("default"); }}
                             disabled={isLoading}
+                            autoFocus
                             className={cn(isError && "border-destructive focus-visible:ring-destructive")}
                         />
                     </div>
@@ -189,7 +190,7 @@ function LoginForm() {
                                 autoComplete="current-password"
                                 placeholder="Enter your password"
                                 value={password}
-                                onChange={e => setPassword(e.target.value)}
+                                onChange={e => { setPassword(e.target.value); if (isError) setState("default"); }}
                                 disabled={isLoading}
                                 className={cn(
                                     "pr-10",

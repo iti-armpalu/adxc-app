@@ -12,7 +12,7 @@ export default function AppLayout({
 }) {
     return (
         <div className="flex h-screen overflow-hidden">
-            <NavRail />
+            {/* <NavRail /> */}
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                 {children}
             </div>

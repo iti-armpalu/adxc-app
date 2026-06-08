@@ -19,7 +19,7 @@ export interface NavItem {
 export const ADMIN_NAV_ITEMS: NavItem[] = [
     {
         label: "Overview",
-        href: "/admin/overview",
+        href: "/admin",
         icon: LayoutDashboard,
     },
     {
