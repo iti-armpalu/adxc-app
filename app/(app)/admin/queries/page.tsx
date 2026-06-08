@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -256,6 +256,14 @@ function SortButton({
 // ---------------------------------------------------------------------------
 
 export default function AdminQueriesPage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
+            <AdminQueriesPageInner />
+        </Suspense>
+    );
+}
+
+function AdminQueriesPageInner() {
     const searchParams = useSearchParams();
     const [queries] = useState<QueryRecord[]>(MOCK_QUERIES);
     // TODO: replace with platform-wide queries list endpoint
