@@ -81,7 +81,7 @@ export function AppShell({
     role: displayRole,
   };
 
-  const isPlatformAdmin = isDev ? true : shellVariant === "admin";
+  const isPlatformAdmin = isDev ? true : shellVariant === "member"; // TODO: replace with real auth session role check
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
