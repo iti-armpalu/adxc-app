@@ -100,10 +100,7 @@ function OrgSwitcher({
   }
 
   function handleSwitch(orgId: number) {
-    // Preserve current org role when switching orgs in dev
-    if (process.env.NODE_ENV === "development") {
-      setVariant("org_admin");
-    }
+    setVariant("org_admin");
     router.push(`/organisations/${orgId}`);
   }
 
@@ -174,7 +171,6 @@ function SidebarLink({ item }: { item: NavItem }) {
       )}
     >
       <span className="flex items-center gap-2.5">
-        {/* Top-level: icon */}
         {Icon && !item.sub && (
           <Icon
             size={15}
@@ -182,7 +178,6 @@ function SidebarLink({ item }: { item: NavItem }) {
             className={active ? "text-primary" : "text-muted-foreground"}
           />
         )}
-        {/* Sub-item: dot */}
         {item.sub && (
           <span className={cn(
             "w-1 h-1 rounded-full shrink-0",
@@ -209,12 +204,9 @@ function SidebarFooter({ user }: { user: SidebarUser }) {
   const { setVariant } = useShellVariant();
 
   function handleSignOut() {
-    // In dev: reset variant to admin and go to login
     // TODO: replace with real auth sign out (clear session/token)
-    if (process.env.NODE_ENV === "development") {
-      setVariant("admin");
-      localStorage.removeItem("dev:shell-variant");
-    }
+    setVariant("admin");
+    localStorage.removeItem("dev:shell-variant");
     router.push("/login");
   }
 
@@ -251,10 +243,6 @@ function SidebarFooter({ user }: { user: SidebarUser }) {
 }
 
 // ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // My organisations button — admin sidebar only
 // ---------------------------------------------------------------------------
 
@@ -265,11 +253,8 @@ function MyOrgsButton({ memberships }: { memberships: OrgMembership[] }) {
 
   function handleClick() {
     if (!hasMemberships) return;
-    // Switch dev variant to org_admin so the member shell renders correctly
-    if (process.env.NODE_ENV === "development") {
-      setVariant("org_admin");
-    }
-    // TODO: persist last visited org_id to land there instead of [0]
+    setVariant("org_admin");
+    // TODO: persist last visited org_id
     router.push(`/organisations/${memberships[0].org_id}`);
   }
 
@@ -279,7 +264,7 @@ function MyOrgsButton({ memberships }: { memberships: OrgMembership[] }) {
         onClick={handleClick}
         disabled={!hasMemberships}
         title={!hasMemberships
-          ? "You\'re not a member of any organisation yet. Add yourself from an org\'s detail page."
+          ? "You're not a member of any organisation yet. Add yourself from an org's detail page."
           : undefined
         }
         className={cn(
@@ -300,11 +285,7 @@ function MyOrgsButton({ memberships }: { memberships: OrgMembership[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Back to admin console button — member sidebar only, platform_admin only
+// Back to admin console button — member sidebar only
 // ---------------------------------------------------------------------------
 
 function BackToAdminButton() {
@@ -312,9 +293,7 @@ function BackToAdminButton() {
   const { setVariant } = useShellVariant();
 
   function handleClick() {
-    if (process.env.NODE_ENV === "development") {
-      setVariant("admin");
-    }
+    setVariant("admin");
     router.push("/admin");
   }
 
@@ -348,24 +327,19 @@ export function Sidebar({
 }: {
   groups: NavGroup[];
   orgSwitcher?: { currentOrgId: string; memberships: OrgMembership[] };
-  /** Admin sidebar only — drives the My organisations button */
   adminOrgs?: OrgMembership[];
-  /** Member sidebar only — show back to admin console if user is platform_admin */
   showAdminConsole?: boolean;
   user?: SidebarUser;
 }) {
   return (
     <div className="flex flex-col w-52 h-full bg-sidebar border-r border-sidebar-border shrink-0 md:h-screen md:sticky md:top-0">
 
-      {/* Back to admin console — member sidebar, platform_admin only */}
       {showAdminConsole && <BackToAdminButton />}
 
-      {/* My organisations button — admin only */}
       {adminOrgs !== undefined && (
         <MyOrgsButton memberships={adminOrgs} />
       )}
 
-      {/* Org switcher — member only */}
       {orgSwitcher && (
         <div className="p-2 border-b border-sidebar-border shrink-0">
           <OrgSwitcher
@@ -375,7 +349,6 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Nav — scrollable */}
       <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto pt-3">
         {groups.map((group, i) => (
           <div key={i} className={cn("flex flex-col gap-0.5", i > 0 && "mt-3")}>
@@ -391,7 +364,6 @@ export function Sidebar({
         ))}
       </nav>
 
-      {/* Footer */}
       {user && <SidebarFooter user={user} />}
 
     </div>
@@ -399,7 +371,7 @@ export function Sidebar({
 }
 
 // ---------------------------------------------------------------------------
-// Admin nav — flat with icons, sub-items only where genuinely needed
+// Admin nav
 // ---------------------------------------------------------------------------
 
 export function buildAdminNav(): NavGroup[] {
@@ -416,7 +388,7 @@ export function buildAdminNav(): NavGroup[] {
 }
 
 // ---------------------------------------------------------------------------
-// Member nav — flat with icons, Settings sub-items for org_admin
+// Member nav
 // ---------------------------------------------------------------------------
 
 export function buildMemberNav(
@@ -434,8 +406,6 @@ export function buildMemberNav(
         { label: "Queries", href: `${base}/queries`, icon: FileText },
       ],
     },
-
-    // Settings — org_admin only
     ...(role === "org_admin"
       ? [
         {
