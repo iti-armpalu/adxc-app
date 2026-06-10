@@ -248,15 +248,17 @@ export default function OrgQueryDetailPage({
                 )}
             </div>
 
-            {/* ── Abstract ─────────────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold">Abstract</h2>
-                <div className="bg-card border p-4">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                        {mock.abstract}
-                    </p>
+            {/* ── Abstract — only shown before approval ── */}
+            {!paid && (
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-sm font-semibold">Abstract</h2>
+                    <div className="bg-card border p-4">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            {mock.abstract}
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ── Full answer or Approve CTA ────────────────────────────────────── */}
             {paid && answer ? (

@@ -155,6 +155,7 @@ export default function QueryDetailPage({
     const params = use(paramsPromise);
     const searchParams = useSearchParams();
 
+
     // useState must be declared before any params-dependent logic
     const [paid, setPaid] = useState<boolean>(false);
     const [answer, setAnswer] = useState<string | null>(null);
@@ -167,6 +168,12 @@ export default function QueryDetailPage({
     const orgName = searchParams.get("org_name") ?? "Unknown organisation";
     const ownerKind = (searchParams.get("owner_kind") ?? "member") as "member" | "org_automation";
     const ownerName = searchParams.get("owner") ?? null;
+
+    // Check if current admin is a member of this org
+    // TODO: replace with real session membership check
+    // GET /v2/orgs → check if org_id is in user's memberships
+    const ADMIN_MEMBERSHIPS = [1, 8, 5]; // matches MOCK_MEMBERSHIPS org_ids
+    const isMemberOfOrg = orgId ? ADMIN_MEMBERSHIPS.includes(parseInt(orgId)) : false;
 
     // Mock — TODO: replace with GET /v1/answers/{answer_uuid}
     // Returns AnswerPreviewResponse: { uuid, question, abstract, price, paid, answer? }
@@ -188,7 +195,8 @@ export default function QueryDetailPage({
 
     async function handleApprove() {
         setApproving(true);
-        // TODO: POST /v1/answers/{answer_uuid}/approve
+        // TODO: POST /v2/orgs/{org_id}/answers/{answer_uuid}/approve
+        // (requires admin to be a member of the org)
         // Returns AnswerApproveResponse: { uuid, paid, charged_now, answer }
         await new Promise((r) => setTimeout(r, 900));
         // Simulate response
@@ -264,15 +272,17 @@ export default function QueryDetailPage({
                 )}
             </div>
 
-            {/* ── Abstract ─────────────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold text-foreground">Abstract</h2>
-                <div className="bg-card border p-4">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                        {abstract}
-                    </p>
+            {/* ── Abstract — only shown before approval ────────────────────────── */}
+            {!paid && (
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-sm font-semibold">Abstract</h2>
+                    <div className="bg-card border p-4">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            {abstract}
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ── Full answer (paid) or Approve CTA (pending) ───────────────────── */}
             {paid && answer ? (
@@ -298,9 +308,9 @@ export default function QueryDetailPage({
                         </p>
                     </div>
                 </div>
-            ) : !paid ? (
+            ) : !paid && isMemberOfOrg ? (
                 <div className={cn(
-                    "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card border p-4",
+                    "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border p-4",
                     "border-warning/30 bg-warning/5"
                 )}>
                     <div className="flex flex-col gap-0.5">
@@ -309,17 +319,15 @@ export default function QueryDetailPage({
                             Approving will charge {price ? formatCurrency(price) : "—"} to {orgName}'s balance and release the full answer.
                         </p>
                     </div>
-                    <Button
-                        onClick={handleApprove}
-                        disabled={approving}
-                        className="gap-2 shrink-0"
-                    >
-                        {approving ? (
-                            <><Loader size={14} className="animate-adxc-spin" /> Approving…</>
-                        ) : (
-                            <><CheckCircle size={14} /> Approve & charge</>
-                        )}
+                    <Button onClick={handleApprove} disabled={approving} className="shrink-0">
+                        {approving ? <><Loader size={14} className="animate-adxc-spin" /> Approving…</> : "Approve & charge"}
                     </Button>
+                </div>
+            ) : !paid && !isMemberOfOrg ? (
+                <div className="border p-4 text-sm text-muted-foreground">
+                    You are not a member of{" "}
+                    <span className="font-medium text-foreground">{orgName}</span>.
+                    Add yourself to this organisation to approve queries on their behalf.
                 </div>
             ) : null}
 
