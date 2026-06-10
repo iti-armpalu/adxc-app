@@ -28,23 +28,19 @@ export function AppShell({
 }) {
   const { variant: devVariant } = useShellVariant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const isDev = process.env.NODE_ENV === "development";
-
-  const shellVariant: AppShellVariant = isDev
-    ? devVariant === "admin" ? "admin" : "member"
-    : (variantProp ?? "admin");
-
-  const role: "member" | "org_admin" = isDev
-    ? devVariant === "org_admin" ? "org_admin" : "member"
-    : (roleProp ?? "member");
-
   const pathname = usePathname();
 
-  // Always extract org_id from pathname — most reliable source since
-  // the layout prop may not update correctly in dev with the variant toggle
+  // Context toggle always drives the shell — works in both dev and production
+  // while the app is on mock data. Remove once real auth is implemented.
+  const shellVariant: AppShellVariant =
+    devVariant === "admin" ? "admin" : "member";
+
+  const role: "member" | "org_admin" =
+    devVariant === "org_admin" ? "org_admin" : "member";
+
+  // Always extract org_id from pathname — most reliable source
   const orgIdFromPath = pathname.match(/^\/organisations\/([^/]+)/)?.[1];
-  const resolvedOrgId = orgIdFromPath ?? orgId ?? (isDev ? "1" : undefined);
+  const resolvedOrgId = orgIdFromPath ?? orgId ?? "1";
 
   const groups =
     shellVariant === "admin"
@@ -64,15 +60,10 @@ export function AppShell({
 
   const adminOrgs = shellVariant === "admin" ? MOCK_MEMBERSHIPS : undefined;
 
-  const displayRole: SidebarUser["role"] = isDev
-    ? devVariant === "admin"
+  const displayRole: SidebarUser["role"] =
+    devVariant === "admin"
       ? "platform_admin"
       : devVariant === "org_admin"
-        ? "org_admin"
-        : "member"
-    : shellVariant === "admin"
-      ? "platform_admin"
-      : role === "org_admin"
         ? "org_admin"
         : "member";
 
@@ -81,19 +72,19 @@ export function AppShell({
     role: displayRole,
   };
 
-  const isPlatformAdmin = isDev ? true : shellVariant === "member"; // TODO: replace with real auth session role check
+  // TODO: replace with real auth session role check
+  // Always true while app uses mock data
+  const isPlatformAdmin = true;
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
 
-      {/* ── Mobile top bar + Desktop rail ────────────────────────────────── */}
       <NavRail
         variant={shellVariant}
         mobileMenuOpen={mobileMenuOpen}
         onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
       />
 
-      {/* ── Mobile drawer backdrop ───────────────────────────────────────── */}
       {mobileMenuOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-backdrop"
@@ -101,7 +92,6 @@ export function AppShell({
         />
       )}
 
-      {/* ── Mobile drawer ────────────────────────────────────────────────── */}
       {groups && (
         <div
           className={`
@@ -121,7 +111,6 @@ export function AppShell({
         </div>
       )}
 
-      {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       {groups && (
         <div className="hidden md:block">
           <Sidebar
@@ -134,7 +123,6 @@ export function AppShell({
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────────────── */}
       <main className="flex-1 min-w-0 bg-background overflow-y-auto">
         {children}
       </main>

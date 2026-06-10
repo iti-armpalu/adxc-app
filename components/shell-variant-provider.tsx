@@ -7,10 +7,6 @@ import { useRouter } from "next/navigation";
 // Types
 // ---------------------------------------------------------------------------
 
-// Three dev variants matching the three real roles:
-// "admin"     → platform admin   (/admin/...)
-// "org_admin" → org admin        (/organisations/[id]/... with Settings visible)
-// "member"    → org member       (/organisations/[id]/... without Settings)
 export type DevVariant = "admin" | "org_admin" | "member";
 
 type ShellVariantContextValue = {
@@ -41,7 +37,6 @@ export function ShellVariantProvider({
     const [variant, setVariantState] = useState<DevVariant>(defaultVariant);
 
     useEffect(() => {
-        if (process.env.NODE_ENV !== "development") return;
         const stored = localStorage.getItem("dev:shell-variant") as DevVariant | null;
         if (stored === "admin" || stored === "org_admin" || stored === "member") {
             setVariantState(stored);
@@ -50,21 +45,19 @@ export function ShellVariantProvider({
 
     function setVariant(v: DevVariant) {
         setVariantState(v);
-        if (process.env.NODE_ENV === "development") {
-            localStorage.setItem("dev:shell-variant", v);
-        }
+        localStorage.setItem("dev:shell-variant", v);
     }
 
     return (
         <ShellVariantContext.Provider value={{ variant, setVariant }}>
             {children}
-            {process.env.NODE_ENV === "development" && <DevVariantToggle />}
+            <DevVariantToggle />
         </ShellVariantContext.Provider>
     );
 }
 
 // ---------------------------------------------------------------------------
-// Floating toggle — dev only
+// Floating toggle
 // ---------------------------------------------------------------------------
 
 const VARIANTS: { value: DevVariant; label: string }[] = [
@@ -73,7 +66,6 @@ const VARIANTS: { value: DevVariant; label: string }[] = [
     { value: "member", label: "Member" },
 ];
 
-// Where each variant lands when selected
 const VARIANT_HOME: Record<DevVariant, string> = {
     admin: "/admin",
     org_admin: "/organisations/1",
