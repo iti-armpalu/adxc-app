@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
     Users,
@@ -12,27 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ---------------------------------------------------------------------------
-// Mock data
-// TODO: GET /v1/users              → MOCK_RECENT_USERS
-// TODO: GET /v2/admin/orgs         → MOCK_STATS.activeOrgs
-// TODO: platform-wide queries list → MOCK_PENDING_QUERIES, MOCK_RECENT_QUERIES, stats
+// Types
 // ---------------------------------------------------------------------------
 
-const MOCK_STATS = {
-    totalUsers: 10,  // GET /v1/users → users.length
-    activeOrgs: 8,  // GET /v2/admin/orgs → orgs.filter(!deleted_at).length
-    totalQueries: 143,  // TODO: no platform-wide queries endpoint yet
-    pendingApproval: 4,  // TODO: no platform-wide queries endpoint yet
+type RecentUser = {
+    id: string;
+    username: string;
+    created_at: string;
 };
 
-const MOCK_RECENT_USERS = [
-    { id: "usr_01", username: "alice.morgan", created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-    { id: "usr_02", username: "sarah.chen", created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
-    { id: "usr_03", username: "james.whitfield", created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-    { id: "usr_04", username: "priya.nair", created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-    { id: "usr_05", username: "isabelle.martin", created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString() },
-];
-
+// TODO: replace when platform-wide queries endpoint is available (not yet in spec)
 const MOCK_PENDING_QUERIES = [
     {
         uuid: "ans_9a1b2c3d",
@@ -68,6 +58,7 @@ const MOCK_PENDING_QUERIES = [
     },
 ];
 
+// TODO: replace when platform-wide queries endpoint is available (not yet in spec)
 const MOCK_RECENT_QUERIES = [
     {
         uuid: "ans_8i9j0k1l",
@@ -189,6 +180,36 @@ function SectionHeader({
 // ---------------------------------------------------------------------------
 
 export default function AdminOverviewPage() {
+    const [totalUsers, setTotalUsers] = useState<number | "…">("…");
+    const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
+    const [activeOrgs, setActiveOrgs] = useState<number | "…">("…");
+
+    // GET /v1/users → user count + recent users list
+    useEffect(() => {
+        fetch("/api/users")
+            .then((r) => r.json())
+            .then((data) => {
+                const users: RecentUser[] = data.users ?? [];
+                setTotalUsers(users.length);
+                const sorted = [...users].sort(
+                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                setRecentUsers(sorted.slice(0, 5));
+            })
+            .catch(() => { });
+    }, []);
+
+    // GET /api/admin/orgs → active org count
+    useEffect(() => {
+        fetch("/api/admin/orgs")
+            .then((r) => r.json())
+            .then((data) => {
+                const orgs = data.orgs ?? [];
+                setActiveOrgs(orgs.filter((o: { deleted_at: string | null }) => !o.deleted_at).length);
+            })
+            .catch(() => { });
+    }, []);
+
     return (
         <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
 
@@ -204,26 +225,26 @@ export default function AdminOverviewPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <StatCard
                     label="Total users"
-                    value={MOCK_STATS.totalUsers}
+                    value={totalUsers}
                     icon={Users}
                     href="/admin/users"
                 />
                 <StatCard
                     label="Active orgs"
-                    value={MOCK_STATS.activeOrgs}
+                    value={activeOrgs}
                     icon={Building2}
                     href="/admin/organisations"
                 />
                 <StatCard
                     label="Total queries"
-                    value={MOCK_STATS.totalQueries}
+                    value={"—"} // TODO: platform-wide queries endpoint not yet in spec
                     icon={FileText}
                     sub="all time"
                     href="/admin/queries"
                 />
                 <StatCard
                     label="Pending approval"
-                    value={MOCK_STATS.pendingApproval}
+                    value={"—"} // TODO: platform-wide queries endpoint not yet in spec
                     icon={Clock}
                     sub="need action"
                     href={PENDING_QUERIES_URL}
@@ -315,11 +336,11 @@ export default function AdminOverviewPage() {
                     <div>
                         <SectionHeader title="Recent users" href="/admin/users" />
                         <div className="bg-card border overflow-hidden">
-                            {MOCK_RECENT_USERS.map((user, i) => (
+                            {recentUsers.map((user, i) => (
                                 <Link
                                     key={user.id}
                                     href="/admin/users"
-                                    className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < MOCK_RECENT_USERS.length - 1 ? "border-b border-border" : ""
+                                    className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < recentUsers.length - 1 ? "border-b border-border" : ""
                                         }`}
                                 >
                                     <Avatar className="w-7 h-7 shrink-0">
