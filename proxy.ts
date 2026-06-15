@@ -9,14 +9,21 @@ export function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // TODO: auth guard — check session token/cookie once real auth is in place
-    // const token = request.cookies.get("token");
-    // if (
-    //   !token &&
-    //   (pathname.startsWith("/admin") || pathname.startsWith("/organisations"))
-    // ) {
-    //   return NextResponse.redirect(new URL("/login", request.url));
-    // }
+    // Protect admin and org routes
+    const isProtected =
+        pathname.startsWith("/admin") ||
+        pathname.startsWith("/organisations");
+
+    const token = request.cookies.get("adxc_auth");
+
+    if (isProtected && !token) {
+        return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    // Redirect logged-in users away from login page
+    if (pathname === "/login" && token) {
+        return NextResponse.redirect(new URL("/admin", request.url));
+    }
 }
 
 export const config = {

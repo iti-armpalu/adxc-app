@@ -23,7 +23,7 @@ function BrandPanel() {
 
             <div className="flex items-center">
                 <Image
-                    src="/logo-wordmark.png"
+                    src="/adxc-logo-white-stacked.svg"
                     alt="ADXC"
                     width={148}
                     height={41}
@@ -84,23 +84,19 @@ function LoginForm() {
         setState("loading");
 
         try {
-            // TODO: replace with real auth endpoint
-            // const res = await fetch("https://api.adxc.ai/v1/auth/login", {
-            //   method: "POST",
-            //   headers: { "Content-Type": "application/json" },
-            //   body: JSON.stringify({ username, password }),
-            // });
-            // if (!res.ok) throw new Error("Unauthorized");
-            // const { token } = await res.json();
-            // store token here
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
+            });
 
-            await new Promise(r => setTimeout(r, 1400));
-            if (!password || password.length < 4) {
+            if (!res.ok) {
                 setState("error");
-            } else {
-                setState("success");
-                setTimeout(() => router.push("/admin"), 1600);
+                return;
             }
+
+            setState("success");
+            setTimeout(() => router.push("/admin"), 1600);
         } catch {
             setState("error");
         }

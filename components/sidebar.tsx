@@ -203,10 +203,9 @@ function SidebarFooter({ user }: { user: SidebarUser }) {
   const router = useRouter();
   const { setVariant } = useShellVariant();
 
-  function handleSignOut() {
-    // TODO: replace with real auth sign out (clear session/token)
+  async function handleSignOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
     setVariant("admin");
-    localStorage.removeItem("dev:shell-variant");
     router.push("/login");
   }
 
