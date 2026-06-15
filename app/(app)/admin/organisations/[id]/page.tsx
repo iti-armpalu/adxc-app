@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
@@ -42,92 +42,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type OrgDetail = {
-    id: number;
-    name: string;
-    balance: string;
-    daily_member_spend_cap: string | null;
-    created_at: string;
-    updated_at: string;
-    deleted_at: string | null;
-};
-
-type Member = {
-    member_id: number;
-    user_id: string;
-    username: string;
-    role: "member" | "org_admin";
-    created_at: string;
-    updated_at: string;
-};
-
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with GET /v2/admin/orgs/{org_id} (undocumented)
-// TODO: replace MOCK_MEMBERS with GET /v2/orgs/{org_id}/members
-// ---------------------------------------------------------------------------
-
-const MOCK_ORGS: Record<string, OrgDetail> = {
-    "1": { id: 1, name: "Unilever Global Insights", balance: "1240.00", daily_member_spend_cap: "100.00", created_at: "2024-10-14T09:00:00Z", updated_at: "2025-06-03T10:00:00Z", deleted_at: null },
-    "2": { id: 2, name: "Nike Consumer Intelligence", balance: "880.50", daily_member_spend_cap: "75.00", created_at: "2024-11-02T11:00:00Z", updated_at: "2025-06-01T09:00:00Z", deleted_at: null },
-    "3": { id: 3, name: "L'Oréal Market Research", balance: "42.00", daily_member_spend_cap: "50.00", created_at: "2024-11-20T16:00:00Z", updated_at: "2025-05-30T08:00:00Z", deleted_at: null },
-    "4": { id: 4, name: "Procter & Gamble Brand Strategy", balance: "3100.00", daily_member_spend_cap: "250.00", created_at: "2024-12-05T09:00:00Z", updated_at: "2025-06-02T14:00:00Z", deleted_at: null },
-    "5": { id: 5, name: "Diageo Audience Labs", balance: "560.00", daily_member_spend_cap: "100.00", created_at: "2025-01-08T10:00:00Z", updated_at: "2025-05-28T11:00:00Z", deleted_at: null },
-    "7": { id: 7, name: "Nestlé Strategic Insights", balance: "195.00", daily_member_spend_cap: "50.00", created_at: "2025-02-10T09:00:00Z", updated_at: "2025-05-25T12:00:00Z", deleted_at: null },
-    "8": { id: 8, name: "LVMH Brand Intelligence", balance: "4750.00", daily_member_spend_cap: null, created_at: "2025-02-18T11:00:00Z", updated_at: "2025-06-03T09:00:00Z", deleted_at: null },
-    "9": { id: 9, name: "Heineken Consumer Insights", balance: "310.00", daily_member_spend_cap: "75.00", created_at: "2025-03-03T10:00:00Z", updated_at: "2025-05-20T14:00:00Z", deleted_at: null },
-    "10": { id: 10, name: "Spotify Audience Research", balance: "28.50", daily_member_spend_cap: "25.00", created_at: "2025-03-19T14:00:00Z", updated_at: "2025-05-31T10:00:00Z", deleted_at: null },
-};
-
-const MOCK_MEMBERS: Record<string, Member[]> = {
-    "1": [
-        { member_id: 1, user_id: "usr_01", username: "sarah.chen", role: "org_admin", created_at: "2024-10-14T09:00:00Z", updated_at: "2024-10-14T09:00:00Z" },
-        { member_id: 2, user_id: "usr_02", username: "james.whitfield", role: "member", created_at: "2024-11-01T10:00:00Z", updated_at: "2024-11-01T10:00:00Z" },
-        { member_id: 3, user_id: "usr_03", username: "priya.nair", role: "member", created_at: "2025-01-15T09:00:00Z", updated_at: "2025-01-15T09:00:00Z" },
-    ],
-    "2": [
-        { member_id: 4, user_id: "usr_04", username: "tom.eriksen", role: "org_admin", created_at: "2024-11-02T11:00:00Z", updated_at: "2024-11-02T11:00:00Z" },
-        { member_id: 5, user_id: "usr_05", username: "mei.zhang", role: "member", created_at: "2025-02-10T09:00:00Z", updated_at: "2025-02-10T09:00:00Z" },
-    ],
-    "8": [
-        { member_id: 6, user_id: "usr_06", username: "isabelle.martin", role: "org_admin", created_at: "2025-02-18T11:00:00Z", updated_at: "2025-02-18T11:00:00Z" },
-        { member_id: 7, user_id: "usr_07", username: "david.okafor", role: "member", created_at: "2025-03-01T09:00:00Z", updated_at: "2025-03-01T09:00:00Z" },
-        { member_id: 8, user_id: "usr_08", username: "anna.lindqvist", role: "member", created_at: "2025-03-10T10:00:00Z", updated_at: "2025-03-10T10:00:00Z" },
-        { member_id: 9, user_id: "usr_09", username: "rafael.santos", role: "member", created_at: "2025-04-01T09:00:00Z", updated_at: "2025-04-01T09:00:00Z" },
-    ],
-};
-
-
-// ---------------------------------------------------------------------------
-// All platform users — for user search in AddMemberDialog
-// TODO: replace with GET /v1/users → UserListResponse
-// ---------------------------------------------------------------------------
-
-const MOCK_ALL_USERS = [
-    { id: "usr_01hx4k2m9n", username: "alice.morgan" },
-    { id: "usr_01hx4k3p7q", username: "sarah.chen" },
-    { id: "usr_01hx4k9r2s", username: "james.whitfield" },
-    { id: "usr_01hx4kbf4t", username: "priya.nair" },
-    { id: "usr_01hx4kdf5u", username: "isabelle.martin" },
-    { id: "usr_01hx4kgh6v", username: "tom.eriksen" },
-    { id: "usr_01hx4kjk7w", username: "mei.zhang" },
-    { id: "usr_01hx4kmn8x", username: "david.okafor" },
-    { id: "usr_01hx4kpq9y", username: "anna.lindqvist" },
-    { id: "usr_01hx4krs0z", username: "rafael.santos" },
-];
-
-const TOPUP_SUGGESTIONS = [
-    { label: "$50", value: "50" },
-    { label: "$100", value: "100" },
-    { label: "$250", value: "250" },
-    { label: "$500", value: "500" },
-    { label: "$1000", value: "1000" },
-];
+import type {
+    AdminOrgResponse,
+    OrgMemberResponse,
+    AdminUserResponse,
+} from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -157,6 +76,18 @@ function initials(username: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const TOPUP_SUGGESTIONS = [
+    { label: "$50", value: "50" },
+    { label: "$100", value: "100" },
+    { label: "$250", value: "250" },
+    { label: "$500", value: "500" },
+    { label: "$1000", value: "1000" },
+];
+
+// ---------------------------------------------------------------------------
 // Top Up Dialog
 // ---------------------------------------------------------------------------
 
@@ -166,7 +97,7 @@ function TopUpDialog({
     onOpenChange,
     onTopUp,
 }: {
-    org: OrgDetail;
+    org: AdminOrgResponse;
     open: boolean;
     onOpenChange: (v: boolean) => void;
     onTopUp: (amount: number) => void;
@@ -183,8 +114,8 @@ function TopUpDialog({
         e.preventDefault();
         if (!amount || isNaN(parseFloat(amount))) return;
         setLoading(true);
-        // TODO: POST /v2/orgs/{org_id}/payments/stripe/checkout-session
-        // body: TopupRequest { amount: number, currency: "usd" }
+        // TODO: POST /v2/orgs/{org_id}/payments/stripe/checkout-session (stub)
+        // No direct admin top-up endpoint in spec yet — optimistic UI update only
         await new Promise((r) => setTimeout(r, 800));
         onTopUp(parseFloat(amount));
         setLoading(false);
@@ -209,7 +140,6 @@ function TopUpDialog({
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
                     <div className="flex flex-col gap-3">
                         <Label>Amount (USD)</Label>
-                        {/* Quick amount pills */}
                         <div className="flex flex-wrap gap-2">
                             {TOPUP_SUGGESTIONS.map((s) => (
                                 <button
@@ -228,13 +158,11 @@ function TopUpDialog({
                                 </button>
                             ))}
                         </div>
-                        {/* Grouped $ input */}
                         <div className="flex border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                             <span className="flex items-center px-3 bg-muted text-muted-foreground text-sm border-r border-input select-none">
                                 USD
                             </span>
                             <input
-                                id="topup-amount"
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
@@ -275,23 +203,36 @@ function AddMemberDialog({
     onOpenChange,
     onAdd,
     existingMemberIds,
+    orgId,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    onAdd: (member: Member) => void;
+    onAdd: (member: OrgMemberResponse) => void;
     existingMemberIds: string[];
+    orgId: string;
 }) {
     const [search, setSearch] = useState("");
     const [selectedId, setSelectedId] = useState("");
     const [selectedUsername, setSelectedUsername] = useState("");
     const [role, setRole] = useState<"member" | "org_admin">("member");
     const [state, setState] = useState<"idle" | "loading" | "success">("idle");
+    const [allUsers, setAllUsers] = useState<AdminUserResponse[]>([]);
+
+    // Fetch real users when dialog opens
+    // GET /v1/users → UserListResponse
+    useEffect(() => {
+        if (open) {
+            fetch("/api/users")
+                .then((r) => r.json())
+                .then((data) => { if (data.users) setAllUsers(data.users); });
+        }
+    }, [open]);
 
     const isLoading = state === "loading";
     const isSuccess = state === "success";
 
-    // Filter users — exclude already members
-    const filteredUsers = MOCK_ALL_USERS.filter(
+    // Filter out already-members and match search
+    const filteredUsers = allUsers.filter(
         (u) =>
             !existingMemberIds.includes(u.id) &&
             u.username.toLowerCase().includes(search.toLowerCase())
@@ -318,20 +259,23 @@ function AddMemberDialog({
         e.preventDefault();
         if (!selectedId) return;
         setState("loading");
-        // TODO: POST /v2/orgs/{org_id}/members
-        // body: AddMemberRequest { user_id: string, role: "member" | "org_admin" }
-        // returns: OrgMemberResponse
-        await new Promise((r) => setTimeout(r, 800));
-        onAdd({
-            member_id: Math.floor(Math.random() * 1000),
-            user_id: selectedId,
-            username: selectedUsername,
-            role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        });
-        setState("success");
-        setTimeout(handleClose, 900);
+        try {
+            // POST /v2/orgs/{org_id}/members
+            // body: AddMemberRequest { email: string, role }
+            // NOTE: using username as email placeholder until Rob adds email to users endpoint
+            const res = await fetch(`/api/orgs/${orgId}/members`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: selectedUsername, role }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            const member = await res.json();
+            onAdd(member);
+            setState("success");
+            setTimeout(handleClose, 900);
+        } catch {
+            setState("idle");
+        }
     }
 
     return (
@@ -344,8 +288,6 @@ function AddMemberDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
-
-                    {/* Selected user */}
                     {selectedId ? (
                         <div className="flex items-center justify-between gap-3 border bg-accent/40 px-3 py-2.5">
                             <div className="flex items-center gap-2.5">
@@ -367,7 +309,6 @@ function AddMemberDialog({
                     ) : (
                         <div className="flex flex-col gap-2">
                             <Label>User</Label>
-                            {/* Search */}
                             <div className="relative">
                                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                                 <Input
@@ -378,7 +319,6 @@ function AddMemberDialog({
                                     className="pl-8 text-sm"
                                 />
                             </div>
-                            {/* User list */}
                             <div className="border overflow-hidden max-h-[200px] overflow-y-auto">
                                 {filteredUsers.length === 0 ? (
                                     <p className="text-xs text-muted-foreground text-center py-6">
@@ -408,7 +348,6 @@ function AddMemberDialog({
                         </div>
                     )}
 
-                    {/* Role */}
                     <div className="flex flex-col gap-1.5">
                         <Label>Role</Label>
                         <Select
@@ -451,26 +390,78 @@ export default function OrgDetailPage({
 }) {
     const { id } = use(paramsPromise);
 
-    // TODO: replace with GET /v2/admin/orgs/{org_id} (undocumented)
-    const [org, setOrg] = useState<OrgDetail | undefined>(MOCK_ORGS[id]);
-
-    // TODO: replace with GET /v2/orgs/{org_id}/members
-    const [members, setMembers] = useState<Member[]>(
-        MOCK_MEMBERS[id] ?? []
-    );
+    const [org, setOrg] = useState<AdminOrgResponse | undefined>(undefined);
+    const [members, setMembers] = useState<OrgMemberResponse[]>([]);
+    const [loadingOrg, setLoadingOrg] = useState(true);
 
     const [topUpOpen, setTopUpOpen] = useState(false);
+    const [addMemberOpen, setAddMemberOpen] = useState(false);
+    const [removingId, setRemovingId] = useState<number | null>(null);
+    const [updatingId, setUpdatingId] = useState<number | null>(null);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    // Fetch org — GET /v2/admin/orgs/{id}
+    useEffect(() => {
+        fetch(`/api/admin/orgs/${id}`)
+            .then((r) => r.json())
+            .then((data) => setOrg(data))
+            .catch(() => setOrg(undefined))
+            .finally(() => setLoadingOrg(false));
+    }, [id]);
+
+    // Fetch members — GET /v2/orgs/{org_id}/members
+    useEffect(() => {
+        fetch(`/api/orgs/${id}/members`)
+            .then((r) => r.json())
+            .then((data) => { if (data.members) setMembers(data.members); })
+            .catch(() => setMembers([]));
+    }, [id]);
 
     function handleTopUpBalance(amount: number) {
         setOrg((prev) =>
             prev ? { ...prev, balance: (parseFloat(prev.balance) + amount).toFixed(2) } : prev
         );
     }
-    const [addMemberOpen, setAddMemberOpen] = useState(false);
-    const [removingId, setRemovingId] = useState<number | null>(null);
-    const [updatingId, setUpdatingId] = useState<number | null>(null);
-    const [deleteOpen, setDeleteOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
+
+    async function handleRemove(memberId: number) {
+        setRemovingId(memberId);
+        try {
+            await fetch(`/api/orgs/${id}/members/${memberId}`, { method: "DELETE" });
+            setMembers((prev) => prev.filter((m) => m.member_id !== memberId));
+        } catch {
+            // TODO: show error
+        } finally {
+            setRemovingId(null);
+        }
+    }
+
+    async function handleSetRole(memberId: number, role: "member" | "org_admin") {
+        setUpdatingId(memberId);
+        try {
+            await fetch(`/api/orgs/${id}/members/${memberId}/set-role`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role }),
+            });
+            setMembers((prev) =>
+                prev.map((m) => m.member_id === memberId ? { ...m, role } : m)
+            );
+        } catch {
+            // TODO: show error
+        } finally {
+            setUpdatingId(null);
+        }
+    }
+
+    if (loadingOrg) {
+        return (
+            <div className="p-8 max-w-[1200px] mx-auto flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader size={15} className="animate-adxc-spin" />
+                Loading…
+            </div>
+        );
+    }
 
     if (!org) {
         return (
@@ -485,25 +476,6 @@ export default function OrgDetailPage({
                 <p className="text-sm text-muted-foreground">Organisation not found.</p>
             </div>
         );
-    }
-
-    async function handleRemove(memberId: number) {
-        setRemovingId(memberId);
-        // TODO: DELETE /v2/orgs/{org_id}/members/{member_id}
-        await new Promise((r) => setTimeout(r, 700));
-        setMembers((prev) => prev.filter((m) => m.member_id !== memberId));
-        setRemovingId(null);
-    }
-
-    async function handleSetRole(memberId: number, role: "member" | "org_admin") {
-        setUpdatingId(memberId);
-        // TODO: POST /v2/orgs/{org_id}/members/{member_id}/set_role
-        // body: SetRoleRequest { role: "member" | "org_admin" }
-        await new Promise((r) => setTimeout(r, 600));
-        setMembers((prev) =>
-            prev.map((m) => m.member_id === memberId ? { ...m, role } : m)
-        );
-        setUpdatingId(null);
     }
 
     return (
@@ -572,11 +544,7 @@ export default function OrgDetailPage({
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Members</h2>
                         {!org.deleted_at && (
-                            <Button
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => setAddMemberOpen(true)}
-                            >
+                            <Button size="sm" className="gap-2" onClick={() => setAddMemberOpen(true)}>
                                 <Plus size={14} strokeWidth={2} />
                                 Add member
                             </Button>
@@ -600,22 +568,17 @@ export default function OrgDetailPage({
                                         i < members.length - 1 && "border-b border-border"
                                     )}
                                 >
-                                    {/* Avatar */}
                                     <Avatar className="w-8 h-8 shrink-0">
                                         <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                                             {initials(member.username)}
                                         </AvatarFallback>
                                     </Avatar>
-
-                                    {/* Username */}
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium truncate">{member.username}</p>
                                         <p className="text-xs text-muted-foreground">
                                             Added {formatDate(member.created_at)}
                                         </p>
                                     </div>
-
-                                    {/* Role badge */}
                                     <Badge
                                         variant="outline"
                                         className={cn(
@@ -627,21 +590,13 @@ export default function OrgDetailPage({
                                     >
                                         {member.role === "org_admin" ? "Org admin" : "Member"}
                                     </Badge>
-
-                                    {/* Updating spinner */}
                                     {updatingId === member.member_id && (
                                         <Loader size={14} className="animate-adxc-spin text-muted-foreground shrink-0" />
                                     )}
-
-                                    {/* Actions */}
                                     {!org.deleted_at && updatingId !== member.member_id && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                >
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                     <MoreHorizontal size={15} />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -689,12 +644,7 @@ export default function OrgDetailPage({
                                     Soft-deletes the org. All members lose access immediately. Can be reversed by a platform engineer.
                                 </p>
                             </div>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                className="shrink-0"
-                                onClick={() => setDeleteOpen(true)}
-                            >
+                            <Button variant="destructive" size="sm" className="shrink-0" onClick={() => setDeleteOpen(true)}>
                                 Delete org
                             </Button>
                         </div>
@@ -715,6 +665,7 @@ export default function OrgDetailPage({
                 onOpenChange={setAddMemberOpen}
                 onAdd={(member) => setMembers((prev) => [...prev, member])}
                 existingMemberIds={members.map((m) => m.user_id)}
+                orgId={id}
             />
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <DialogContent className="sm:max-w-md bg-card text-card-foreground">
@@ -723,8 +674,7 @@ export default function OrgDetailPage({
                         <DialogDescription>
                             This will soft-delete{" "}
                             <span className="font-semibold text-foreground">{org.name}</span>.
-                            All {members.length} member{members.length !== 1 ? "s" : ""} will
-                            lose access immediately.
+                            All {members.length} member{members.length !== 1 ? "s" : ""} will lose access immediately.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -737,7 +687,7 @@ export default function OrgDetailPage({
                             className="gap-2"
                             onClick={async () => {
                                 setDeleting(true);
-                                // TODO: DELETE /v2/admin/orgs/{org_id} (not in spec — needs backend endpoint)
+                                // TODO: DELETE /v2/admin/orgs/{org_id} — not in spec yet
                                 await new Promise((r) => setTimeout(r, 800));
                                 setDeleting(false);
                                 setDeleteOpen(false);
