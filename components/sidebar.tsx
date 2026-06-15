@@ -64,12 +64,6 @@ export const MOCK_MEMBERSHIPS: OrgMembership[] = [
   { org_id: 5, org_name: "Diageo Audience Labs", member_id: 3, role: "member" },
 ];
 
-// TODO: replace with auth session user
-export const MOCK_USER: SidebarUser = {
-  username: "sarah.chen",
-  role: "org_admin",
-};
-
 // ---------------------------------------------------------------------------
 // Role label
 // ---------------------------------------------------------------------------

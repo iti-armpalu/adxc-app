@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { NavRail } from "@/components/nav-rail";
 import {
@@ -8,7 +8,6 @@ import {
   buildAdminNav,
   buildMemberNav,
   MOCK_MEMBERSHIPS,
-  MOCK_USER,
   type SidebarUser,
 } from "@/components/sidebar";
 import { useShellVariant } from "@/components/shell-variant-provider";
@@ -28,17 +27,25 @@ export function AppShell({
 }) {
   const { variant: devVariant } = useShellVariant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [username, setUsername] = useState<string>("…");
   const pathname = usePathname();
 
-  // Context toggle always drives the shell — works in both dev and production
-  // while the app is on mock data. Remove once real auth is implemented.
+  // Fetch real username on mount
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.username) setUsername(data.username);
+      })
+      .catch(() => setUsername("unknown"));
+  }, []);
+
   const shellVariant: AppShellVariant =
     devVariant === "admin" ? "admin" : "member";
 
   const role: "member" | "org_admin" =
     devVariant === "org_admin" ? "org_admin" : "member";
 
-  // Always extract org_id from pathname — most reliable source
   const orgIdFromPath = pathname.match(/^\/organisations\/([^/]+)/)?.[1];
   const resolvedOrgId = orgIdFromPath ?? orgId ?? "1";
 
@@ -53,7 +60,6 @@ export function AppShell({
     shellVariant === "member" && resolvedOrgId
       ? {
         currentOrgId: resolvedOrgId,
-        // TODO: replace with GET /v2/orgs → MembershipListResponse
         memberships: MOCK_MEMBERSHIPS,
       }
       : undefined;
@@ -68,17 +74,14 @@ export function AppShell({
         : "member";
 
   const sidebarUser: SidebarUser = {
-    username: MOCK_USER.username,
+    username, // ← real username from API
     role: displayRole,
   };
 
-  // TODO: replace with real auth session role check
-  // Always true while app uses mock data
-  const isPlatformAdmin = true;
+  const isPlatformAdmin = true; // TODO: replace with real role from API
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
-
       <NavRail
         variant={shellVariant}
         mobileMenuOpen={mobileMenuOpen}
@@ -126,7 +129,6 @@ export function AppShell({
       <main className="flex-1 min-w-0 bg-background overflow-y-auto">
         {children}
       </main>
-
     </div>
   );
 }
