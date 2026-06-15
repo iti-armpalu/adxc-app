@@ -42,7 +42,7 @@ type NavGroup = {
 };
 
 export type OrgMembership = {
-  org_id: number;
+  org_id: string;
   org_name: string;
   member_id: number;
   role: "member" | "org_admin";
@@ -52,17 +52,6 @@ export type SidebarUser = {
   username: string;
   role: "platform_admin" | "org_admin" | "member";
 };
-
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with GET /v2/orgs → MembershipListResponse
-// ---------------------------------------------------------------------------
-
-export const MOCK_MEMBERSHIPS: OrgMembership[] = [
-  { org_id: 1, org_name: "Unilever Global Insights", member_id: 1, role: "org_admin" },
-  { org_id: 8, org_name: "LVMH Brand Intelligence", member_id: 6, role: "member" },
-  { org_id: 5, org_name: "Diageo Audience Labs", member_id: 3, role: "member" },
-];
 
 // ---------------------------------------------------------------------------
 // Role label
@@ -93,7 +82,7 @@ function OrgSwitcher({
     return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   }
 
-  function handleSwitch(orgId: number) {
+  function handleSwitch(orgId: string) {
     setVariant("org_admin");
     router.push(`/organisations/${orgId}`);
   }

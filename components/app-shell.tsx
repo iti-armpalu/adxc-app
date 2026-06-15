@@ -7,8 +7,8 @@ import {
   Sidebar,
   buildAdminNav,
   buildMemberNav,
-  MOCK_MEMBERSHIPS,
   type SidebarUser,
+  type OrgMembership,
 } from "@/components/sidebar";
 import { useShellVariant } from "@/components/shell-variant-provider";
 
@@ -28,6 +28,7 @@ export function AppShell({
   const { variant: devVariant } = useShellVariant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [username, setUsername] = useState<string>("…");
+  const [memberships, setMemberships] = useState<OrgMembership[]>([]);
   const pathname = usePathname();
 
   // Fetch real username on mount
@@ -40,6 +41,25 @@ export function AppShell({
       .catch(() => setUsername("unknown"));
   }, []);
 
+  // Fetch real org memberships on mount
+  useEffect(() => {
+    fetch("/api/orgs")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.memberships) {
+          setMemberships(
+            data.memberships.map((m: any) => ({
+              org_id: String(m.org_id),
+              org_name: m.org_name,
+              member_id: m.member_id,
+              role: m.role,
+            }))
+          );
+        }
+      })
+      .catch(() => setMemberships([]));
+  }, []);
+
   const shellVariant: AppShellVariant =
     devVariant === "admin" ? "admin" : "member";
 
@@ -47,7 +67,7 @@ export function AppShell({
     devVariant === "org_admin" ? "org_admin" : "member";
 
   const orgIdFromPath = pathname.match(/^\/organisations\/([^/]+)/)?.[1];
-  const resolvedOrgId = orgIdFromPath ?? orgId ?? "1";
+  const resolvedOrgId = orgIdFromPath ?? orgId ?? memberships[0]?.org_id ?? "1";
 
   const groups =
     shellVariant === "admin"
@@ -60,11 +80,11 @@ export function AppShell({
     shellVariant === "member" && resolvedOrgId
       ? {
         currentOrgId: resolvedOrgId,
-        memberships: MOCK_MEMBERSHIPS,
+        memberships, // ← real memberships
       }
       : undefined;
 
-  const adminOrgs = shellVariant === "admin" ? MOCK_MEMBERSHIPS : undefined;
+  const adminOrgs = shellVariant === "admin" ? memberships : undefined; // ← real memberships
 
   const displayRole: SidebarUser["role"] =
     devVariant === "admin"
@@ -74,7 +94,7 @@ export function AppShell({
         : "member";
 
   const sidebarUser: SidebarUser = {
-    username, // ← real username from API
+    username,
     role: displayRole,
   };
 
