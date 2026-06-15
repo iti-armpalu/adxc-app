@@ -305,19 +305,6 @@ export default function OrgOverviewPage({
             <div>
                 <h2 className="text-sm font-semibold mb-3">Quick actions</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Link
-                        href={`${base}/query`}
-                        className="group flex items-center gap-3 bg-card border p-4 hover:border-border-3 transition-colors"
-                    >
-                        <div className="w-8 h-8 bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <Zap size={15} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">Run a query</p>
-                            <p className="text-xs text-muted-foreground">Ask a question across data providers</p>
-                        </div>
-                        <ArrowRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </Link>
 
                     <Link
                         href={`${base}/queries`}

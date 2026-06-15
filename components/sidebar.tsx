@@ -384,7 +384,6 @@ export function buildMemberNav(
     {
       items: [
         { label: "Overview", href: base, icon: LayoutDashboard },
-        { label: "Query", href: `${base}/query`, icon: Zap },
         { label: "Queries", href: `${base}/queries`, icon: FileText },
       ],
     },
