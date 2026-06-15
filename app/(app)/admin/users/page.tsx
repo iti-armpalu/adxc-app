@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     Search,
     MoreHorizontal,
@@ -63,74 +63,6 @@ type SortKey = "username" | "created_at";
 type SortDir = "asc" | "desc";
 
 // ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with GET /v1/users (admin-only)
-// ---------------------------------------------------------------------------
-
-const MOCK_USERS: User[] = [
-    {
-        id: "usr_01hx4k2m9n",
-        username: "alice.morgan",
-        created_at: "2024-11-03T09:14:22Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4k3p7q",
-        username: "brand.team.ogilvy",
-        created_at: "2024-11-15T11:45:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4k9r2s",
-        username: "data.provider.yougov",
-        created_at: "2024-12-01T16:00:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4kbf4t",
-        username: "james.whitfield",
-        created_at: "2025-01-08T08:22:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4kdf5u",
-        username: "agency.planner.bbdo",
-        created_at: "2025-01-20T13:00:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4kgh6v",
-        username: "sdk.integrator.01",
-        created_at: "2025-02-03T07:00:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4kjk7w",
-        username: "nadia.vasquez",
-        created_at: "2025-02-14T10:45:00Z",
-        deleted_at: "2025-05-15T11:00:00Z",
-    },
-    {
-        id: "usr_01hx4kmn8x",
-        username: "provider.reddit.api",
-        created_at: "2025-03-01T09:00:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4kpq9y",
-        username: "tom.eriksen",
-        created_at: "2025-03-18T15:30:00Z",
-        deleted_at: null,
-    },
-    {
-        id: "usr_01hx4krs0z",
-        username: "census.feed.svc",
-        created_at: "2025-04-05T12:00:00Z",
-        deleted_at: null,
-    },
-];
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -145,8 +77,6 @@ function formatDate(iso: string) {
 function initials(username: string) {
     return username.slice(0, 2).toUpperCase();
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -245,11 +175,14 @@ function PasswordInput({
 function CreateUserDialog({
     open,
     onOpenChange,
+    onCreated,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
+    onCreated: (user: User) => void;
 }) {
     const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [state, setState] = useState<"idle" | "error" | "loading" | "success">("idle");
     const [errorMsg, setErrorMsg] = useState("");
@@ -261,6 +194,7 @@ function CreateUserDialog({
         onOpenChange(false);
         setTimeout(() => {
             setUsername("");
+            setEmail("");
             setPassword("");
             setState("idle");
             setErrorMsg("");
@@ -269,16 +203,32 @@ function CreateUserDialog({
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!username.trim() || password.length < 8) {
+        if (!username.trim() || !email.trim() || password.length < 8) {
             setState("error");
             setErrorMsg("Please fill in all fields correctly.");
             return;
         }
         setState("loading");
-        // TODO: POST /v2/admin/users  body: { username, password }
-        await new Promise((r) => setTimeout(r, 800));
-        setState("success");
-        setTimeout(handleClose, 900);
+        try {
+            const res = await fetch("/api/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                setState("error");
+                setErrorMsg(data.error ?? "Failed to create user.");
+                return;
+            }
+            const user = await res.json();
+            onCreated(user);
+            setState("success");
+            setTimeout(handleClose, 900);
+        } catch {
+            setState("error");
+            setErrorMsg("Something went wrong.");
+        }
     }
 
     return (
@@ -309,6 +259,19 @@ function CreateUserDialog({
                             autoFocus
                             maxLength={64}
                             className={cn(state === "error" && !username.trim() && "border-destructive")}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="create-email">Email</Label>
+                        <Input
+                            id="create-email"
+                            type="email"
+                            placeholder="e.g. jane@company.com"
+                            value={email}
+                            onChange={(e) => { setEmail(e.target.value); setState("idle"); }}
+                            disabled={isLoading || isSuccess}
+                            autoComplete="off"
+                            className={cn(state === "error" && !email.trim() && "border-destructive")}
                         />
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -349,24 +312,31 @@ function CreateUserDialog({
 function DeleteUserDialog({
     user,
     onOpenChange,
+    onDeleted,
 }: {
     user: User | null;
     onOpenChange: (v: boolean) => void;
+    onDeleted: (userId: string) => void;
 }) {
     const [loading, setLoading] = useState(false);
 
     async function handleDelete() {
         if (!user) return;
         setLoading(true);
-        // TODO: DELETE /v2/admin/users/{user_id}  (endpoint not yet in spec — placeholder)
-        await new Promise((r) => setTimeout(r, 800));
-        setLoading(false);
-        onOpenChange(false);
+        try {
+            await fetch(`/api/users/${user.id}`, { method: "DELETE" });
+            onDeleted(user.id);
+        } catch {
+            // TODO: show error
+        } finally {
+            setLoading(false);
+            onOpenChange(false);
+        }
     }
 
     return (
         <Dialog open={!!user} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md bg-card text-card-foreground">
                 <DialogHeader>
                     <DialogTitle>Delete user</DialogTitle>
                     <DialogDescription>
@@ -405,16 +375,24 @@ function ResetPasswordDialog({
     async function handleReset() {
         if (!user || password.length < 8) return;
         setLoading(true);
-        // TODO: POST /v2/admin/users/{user_id}/set_password  body: { password }
-        await new Promise((r) => setTimeout(r, 800));
-        setLoading(false);
-        onOpenChange(false);
-        setPassword("");
+        try {
+            await fetch(`/api/users/${user.id}/set-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password }),
+            });
+        } catch {
+            // TODO: show error
+        } finally {
+            setLoading(false);
+            onOpenChange(false);
+            setPassword("");
+        }
     }
 
     return (
         <Dialog open={!!user} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md bg-card text-card-foreground">
                 <DialogHeader>
                     <DialogTitle>Reset password</DialogTitle>
                     <DialogDescription>
@@ -452,8 +430,8 @@ function ResetPasswordDialog({
 // ---------------------------------------------------------------------------
 
 export default function AdminUsersPage() {
-    const [users] = useState<User[]>(MOCK_USERS);
-    // TODO: replace useState initialiser with: await fetch('/v1/users', { headers: { Authorization } })
+    const [users, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [search, setSearch] = useState("");
     const [showDeleted, setShowDeleted] = useState(false);
@@ -463,6 +441,18 @@ export default function AdminUsersPage() {
     const [createOpen, setCreateOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
     const [resetTarget, setResetTarget] = useState<User | null>(null);
+
+    // Fetch real users on mount
+    // GET /v1/users → UserListResponse { users: AdminUserResponse[] }
+    useEffect(() => {
+        fetch("/api/users")
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.users) setUsers(data.users);
+            })
+            .catch(() => setUsers([]))
+            .finally(() => setLoading(false));
+    }, []);
 
     function handleSort(key: SortKey) {
         if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -490,9 +480,7 @@ export default function AdminUsersPage() {
 
     return (
         <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
-            {/* ------------------------------------------------------------------ */}
-            {/* Page header                                                          */}
-            {/* ------------------------------------------------------------------ */}
+
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
@@ -510,9 +498,6 @@ export default function AdminUsersPage() {
                 </Button>
             </div>
 
-            {/* ------------------------------------------------------------------ */}
-            {/* Toolbar                                                              */}
-            {/* ------------------------------------------------------------------ */}
             <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -532,173 +517,185 @@ export default function AdminUsersPage() {
                 </Button>
             </div>
 
-            {/* ------------------------------------------------------------------ */}
-            {/* Table                                                                */}
-            {/* ------------------------------------------------------------------ */}
+            {/* Loading state */}
+            {loading && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground gap-2 text-sm">
+                    <Loader size={15} className="animate-adxc-spin" />
+                    Loading users…
+                </div>
+            )}
+
             {/* ── Mobile: card list ──────────────────────────────────────────────── */}
-            <div className="md:hidden flex flex-col gap-3">
-                {filtered.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                        No users match your search.
-                    </p>
-                )}
-                {filtered.map((user) => {
-                    const isDeleted = !!user.deleted_at;
-                    return (
-                        <div
-                            key={user.id}
-                            className={`bg-card border p-4 flex items-center gap-3 ${isDeleted ? "opacity-50" : ""}`}
-                        >
-                            <Avatar className="w-8 h-8 shrink-0">
-                                <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
-                                    {initials(user.username)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{user.username}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                    <code className="text-xs text-muted-foreground font-mono truncate">{user.id}</code>
-                                    <CopyId id={user.id} />
+            {!loading && (
+                <div className="md:hidden flex flex-col gap-3">
+                    {filtered.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-8">
+                            No users match your search.
+                        </p>
+                    )}
+                    {filtered.map((user) => {
+                        const isDeleted = !!user.deleted_at;
+                        return (
+                            <div
+                                key={user.id}
+                                className={`bg-card border p-4 flex items-center gap-3 ${isDeleted ? "opacity-50" : ""}`}
+                            >
+                                <Avatar className="w-8 h-8 shrink-0">
+                                    <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
+                                        {initials(user.username)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{user.username}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <code className="text-xs text-muted-foreground font-mono truncate">{user.id}</code>
+                                        <CopyId id={user.id} />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {isDeleted ? (
+                                        <Badge variant="destructive" className="text-xs font-normal">Deleted</Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Active</Badge>
+                                    )}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreHorizontal className="w-4 h-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48 bg-card text-card-foreground">
+                                            <DropdownMenuItem onClick={() => setResetTarget(user)}>
+                                                <KeyRound className="w-4 h-4 mr-2" />
+                                                Reset password
+                                            </DropdownMenuItem>
+                                            {!isDeleted && (
+                                                <>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive focus:text-destructive"
+                                                        onClick={() => setDeleteTarget(user)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4 mr-2" />
+                                                        Delete user
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                {isDeleted ? (
-                                    <Badge variant="destructive" className="text-xs font-normal">Deleted</Badge>
-                                ) : (
-                                    <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Active</Badge>
-                                )}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreHorizontal className="w-4 h-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48 bg-card text-card-foreground">
-                                        <DropdownMenuItem onClick={() => setResetTarget(user)}>
-                                            <KeyRound className="w-4 h-4 mr-2" />
-                                            Reset password
-                                        </DropdownMenuItem>
-                                        {!isDeleted && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    className="text-destructive focus:text-destructive"
-                                                    onClick={() => setDeleteTarget(user)}
-                                                >
-                                                    <Trash2 className="w-4 h-4 mr-2" />
-                                                    Delete user
-                                                </DropdownMenuItem>
-                                            </>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* ── Desktop: table ─────────────────────────────────────────────────── */}
-            <div className="hidden md:block border overflow-hidden bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-muted/40 hover:bg-muted/40">
-                            <TableHead className="w-10 pl-4" />
-                            <TableHead>
-                                <SortButton col="username" label="Username" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-                            </TableHead>
-                            <TableHead className="text-xs text-muted-foreground font-medium">
-                                User ID
-                            </TableHead>
-                            <TableHead>
-                                <SortButton col="created_at" label="Created" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-                            </TableHead>
-                            <TableHead className="text-xs text-muted-foreground font-medium">Status</TableHead>
-                            <TableHead className="w-10 pr-4" />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filtered.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
-                                    No users match your search.
-                                </TableCell>
+            {!loading && (
+                <div className="hidden md:block border overflow-hidden bg-card">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                <TableHead className="w-10 pl-4" />
+                                <TableHead>
+                                    <SortButton col="username" label="Username" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                                </TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium">
+                                    User ID
+                                </TableHead>
+                                <TableHead>
+                                    <SortButton col="created_at" label="Created" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                                </TableHead>
+                                <TableHead className="text-xs text-muted-foreground font-medium">Status</TableHead>
+                                <TableHead className="w-10 pr-4" />
                             </TableRow>
-                        )}
-                        {filtered.map((user) => {
-                            const isDeleted = !!user.deleted_at;
-                            return (
-                                <TableRow key={user.id} className={`group ${isDeleted ? "opacity-50" : ""}`}>
-                                    <TableCell className="pl-4 pr-2">
-                                        <Avatar className="w-8 h-8">
-                                            <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
-                                                {initials(user.username)}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </TableCell>
-                                    <TableCell className="font-medium text-sm">{user.username}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            <code className="text-xs text-muted-foreground font-mono">{user.id}</code>
-                                            <CopyId id={user.id} />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        {formatDate(user.created_at)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {isDeleted ? (
-                                            <Badge variant="destructive" className="text-xs font-normal">Deleted</Badge>
-                                        ) : (
-                                            <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Active</Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="pr-4">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <MoreHorizontal className="w-4 h-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48 bg-card text-card-foreground">
-                                                <DropdownMenuItem onClick={() => setResetTarget(user)}>
-                                                    <KeyRound className="w-4 h-4 mr-2" />
-                                                    Reset password
-                                                </DropdownMenuItem>
-                                                {!isDeleted && (
-                                                    <>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="text-destructive focus:text-destructive"
-                                                            onClick={() => setDeleteTarget(user)}
-                                                        >
-                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                            Delete user
-                                                        </DropdownMenuItem>
-                                                    </>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                        </TableHeader>
+                        <TableBody>
+                            {filtered.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                                        No users match your search.
                                     </TableCell>
                                 </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-            </div>
+                            )}
+                            {filtered.map((user) => {
+                                const isDeleted = !!user.deleted_at;
+                                return (
+                                    <TableRow key={user.id} className={`group ${isDeleted ? "opacity-50" : ""}`}>
+                                        <TableCell className="pl-4 pr-2">
+                                            <Avatar className="w-8 h-8">
+                                                <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
+                                                    {initials(user.username)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </TableCell>
+                                        <TableCell className="font-medium text-sm">{user.username}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center">
+                                                <code className="text-xs text-muted-foreground font-mono">{user.id}</code>
+                                                <CopyId id={user.id} />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {formatDate(user.created_at)}
+                                        </TableCell>
+                                        <TableCell>
+                                            {isDeleted ? (
+                                                <Badge variant="destructive" className="text-xs font-normal">Deleted</Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Active</Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <MoreHorizontal className="w-4 h-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-48 bg-card text-card-foreground">
+                                                    <DropdownMenuItem onClick={() => setResetTarget(user)}>
+                                                        <KeyRound className="w-4 h-4 mr-2" />
+                                                        Reset password
+                                                    </DropdownMenuItem>
+                                                    {!isDeleted && (
+                                                        <>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive"
+                                                                onClick={() => setDeleteTarget(user)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                                Delete user
+                                                            </DropdownMenuItem>
+                                                        </>
+                                                    )}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
 
-            {/* Row count */}
             <p className="text-xs text-muted-foreground pl-1">
                 Showing {filtered.length} of {users.length} users
             </p>
 
-            {/* ------------------------------------------------------------------ */}
-            {/* Dialogs                                                              */}
-            {/* ------------------------------------------------------------------ */}
-            <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+            <CreateUserDialog
+                open={createOpen}
+                onOpenChange={setCreateOpen}
+                onCreated={(user) => setUsers((prev) => [user, ...prev])}
+            />
             <DeleteUserDialog
                 user={deleteTarget}
                 onOpenChange={(v) => !v && setDeleteTarget(null)}
+                onDeleted={(id) => setUsers((prev) =>
+                    prev.map((u) => u.id === id ? { ...u, deleted_at: new Date().toISOString() } : u)
+                )}
             />
             <ResetPasswordDialog
                 user={resetTarget}
