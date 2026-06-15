@@ -212,7 +212,7 @@ function AddMemberDialog({
     orgId: string;
 }) {
     const [search, setSearch] = useState("");
-    const [selectedId, setSelectedId] = useState("");
+    const [selectedEmail, setSelectedEmail] = useState("");
     const [selectedUsername, setSelectedUsername] = useState("");
     const [role, setRole] = useState<"member" | "org_admin">("member");
     const [state, setState] = useState<"idle" | "loading" | "success">("idle");
@@ -231,15 +231,18 @@ function AddMemberDialog({
     const isLoading = state === "loading";
     const isSuccess = state === "success";
 
-    // Filter out already-members and match search
+    // Filter out already-members, match search against email or username
     const filteredUsers = allUsers.filter(
         (u) =>
             !existingMemberIds.includes(u.id) &&
-            u.username.toLowerCase().includes(search.toLowerCase())
+            (
+                (u.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
+                (u.username ?? "").toLowerCase().includes(search.toLowerCase())
+            )
     );
 
-    function handleSelect(userId: string, username: string) {
-        setSelectedId(userId);
+    function handleSelect(email: string, username: string) {
+        setSelectedEmail(email);
         setSelectedUsername(username);
         setSearch("");
     }
@@ -248,7 +251,7 @@ function AddMemberDialog({
         onOpenChange(false);
         setTimeout(() => {
             setSearch("");
-            setSelectedId("");
+            setSelectedEmail("");
             setSelectedUsername("");
             setRole("member");
             setState("idle");
@@ -257,16 +260,14 @@ function AddMemberDialog({
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!selectedId) return;
+        if (!selectedEmail) return;
         setState("loading");
         try {
-            // POST /v2/orgs/{org_id}/members
-            // body: AddMemberRequest { email: string, role }
-            // NOTE: using username as email placeholder until Rob adds email to users endpoint
+            // POST /v2/orgs/{org_id}/members — AddMemberRequest { email, role }
             const res = await fetch(`/api/orgs/${orgId}/members`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: selectedUsername, role }),
+                body: JSON.stringify({ email: selectedEmail, role }),
             });
             if (!res.ok) throw new Error("Failed");
             const member = await res.json();
@@ -288,7 +289,7 @@ function AddMemberDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
-                    {selectedId ? (
+                    {selectedEmail ? (
                         <div className="flex items-center justify-between gap-3 border bg-accent/40 px-3 py-2.5">
                             <div className="flex items-center gap-2.5">
                                 <Avatar className="w-6 h-6 shrink-0">
@@ -296,12 +297,15 @@ function AddMemberDialog({
                                         {selectedUsername.slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
-                                <span className="text-sm font-medium">{selectedUsername}</span>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-sm font-medium leading-tight">{selectedUsername}</span>
+                                    <span className="text-xs text-muted-foreground truncate">{selectedEmail || "—"}</span>
+                                </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => { setSelectedId(""); setSelectedUsername(""); }}
-                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => { setSelectedEmail(""); setSelectedUsername(""); }}
+                                className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
                             >
                                 Change
                             </button>
@@ -312,7 +316,7 @@ function AddMemberDialog({
                             <div className="relative">
                                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                                 <Input
-                                    placeholder="Search by username…"
+                                    placeholder="Search by email or username…"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     autoFocus
@@ -329,7 +333,7 @@ function AddMemberDialog({
                                         <button
                                             key={user.id}
                                             type="button"
-                                            onClick={() => handleSelect(user.id, user.username)}
+                                            onClick={() => handleSelect(user.email ?? "", user.username)}
                                             className={cn(
                                                 "flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-accent transition-colors",
                                                 i < filteredUsers.length - 1 && "border-b border-border"
@@ -340,7 +344,10 @@ function AddMemberDialog({
                                                     {user.username.slice(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            <span className="text-sm">{user.username}</span>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-sm leading-tight">{user.username}</span>
+                                                <span className="text-xs text-muted-foreground truncate">{user.email ?? "—"}</span>
+                                            </div>
                                         </button>
                                     ))
                                 )}
@@ -369,7 +376,7 @@ function AddMemberDialog({
                         <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={!selectedId || isLoading || isSuccess} className="gap-2 min-w-[120px]">
+                        <Button type="submit" disabled={!selectedEmail || isLoading || isSuccess} className="gap-2 min-w-[120px]">
                             {isLoading ? "Adding…" : isSuccess ? "Added" : "Add member"}
                         </Button>
                     </DialogFooter>

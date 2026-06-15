@@ -30,6 +30,7 @@ export type MembershipListResponse = {
 export type AdminUserResponse = {
     id: string;
     username: string;
+    email: string;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -43,6 +44,7 @@ export type OrgMemberResponse = {
     member_id: number;
     user_id: string;
     username: string;
+    email: string;
     role: "member" | "org_admin";
     created_at: string;
     updated_at: string;
