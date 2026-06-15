@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useMemo } from "react";
+import { use, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
     Search,
@@ -9,6 +9,7 @@ import {
     ChevronsUpDown,
     X,
     ChevronDown as ChevronDownIcon,
+    Loader,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { AnswerListItemResponse } from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,7 +46,8 @@ type QueryRecord = {
     price: string;
     paid: boolean;
     owner_kind: "member" | "org_automation";
-    owner_username: string | null;
+    owner_member_id: number | null;
+    owner_api_key_id: number | null;
     created_at: string;
     paid_at: string | null;
 };
@@ -54,67 +57,7 @@ type SortDir = "asc" | "desc";
 type StatusFilter = "all" | "pending" | "approved";
 type OwnerFilter = string[]; // empty = all; "__api_key__" = API key entries
 
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: GET /v2/orgs/{org_id}/members/me/answers  (member — mine only)
-// TODO: GET /v2/orgs/{org_id}/answers             (org_admin — all)
-// ---------------------------------------------------------------------------
-
-const MOCK_QUERIES: QueryRecord[] = [
-    {
-        uuid: "ans_9a1b2c3d",
-        question: "What are the top purchase drivers for Gen Z consumers in the UK sportswear market?",
-        price: "12.50",
-        paid: false,
-        owner_kind: "member",
-        owner_username: "sarah.chen",
-        created_at: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_2m3n4o5p",
-        question: "Brand awareness scores for challenger fintech brands among 25–34 year olds in Australia.",
-        price: "15.00",
-        paid: true,
-        owner_kind: "org_automation",
-        owner_username: null,
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 14 + 420000).toISOString(),
-    },
-    {
-        uuid: "ans_8i9j0k1l",
-        question: "What percentage of US households earning over $100k use meal-kit delivery services?",
-        price: "6.50",
-        paid: true,
-        owner_kind: "member",
-        owner_username: "sarah.chen",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 24 + 300000).toISOString(),
-    },
-    {
-        uuid: "ans_7u8v9w0x",
-        question: "What are current consumer attitudes toward luxury resale platforms in Western Europe?",
-        price: "22.00",
-        paid: false,
-        owner_kind: "member",
-        owner_username: "james.whitfield",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_3k4l5m6n",
-        question: "Consumer willingness to pay premium for sustainable FMCG packaging in the UK.",
-        price: "10.00",
-        paid: true,
-        owner_kind: "member",
-        owner_username: "priya.nair",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 72 + 360000).toISOString(),
-    },
-];
-
-const CURRENT_USERNAME = "sarah.chen";
-// TODO: replace with session user
+// (Mock data removed — page fetches from real endpoints based on role)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -177,10 +120,42 @@ export default function OrgQueriesPage({
     const { org_id } = use(paramsPromise);
     const base = `/organisations/${org_id}`;
 
-    // TODO: derive role from GET /v2/orgs/{org_id}/members/me
-    const role = "org_admin" as "member" | "org_admin";
+    const [role, setRole] = useState<"member" | "org_admin">("member");
+    const [queries, setQueries] = useState<QueryRecord[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const [queries] = useState<QueryRecord[]>(MOCK_QUERIES);
+    // Fetch role from GET /v2/orgs/{org_id}/members/me, then fetch answers
+    // org_admin → GET /v2/orgs/{org_id}/answers (all org answers)
+    // member    → GET /v2/orgs/{org_id}/members/me/answers (own answers only)
+    useEffect(() => {
+        fetch(`/api/orgs/${org_id}/members/me`)
+            .then((r) => r.json())
+            .then((me) => {
+                const memberRole = me.role ?? "member";
+                setRole(memberRole);
+                const answersUrl = memberRole === "org_admin"
+                    ? `/api/orgs/${org_id}/answers`
+                    : `/api/orgs/${org_id}/members/me/answers`;
+                return fetch(answersUrl);
+            })
+            .then((r) => r.json())
+            .then((data) => {
+                const answers = (data.answers ?? []).map((a: AnswerListItemResponse) => ({
+                    uuid: a.uuid,
+                    question: a.question,
+                    price: a.price,
+                    paid: a.paid,
+                    owner_kind: a.owner_kind,
+                    owner_member_id: a.owner_member_id,
+                    owner_api_key_id: a.owner_api_key_id,
+                    created_at: a.created_at,
+                    paid_at: a.paid_at,
+                }));
+                setQueries(answers);
+            })
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, [org_id]);
 
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState<StatusFilter>("all");
@@ -193,12 +168,13 @@ export default function OrgQueriesPage({
         else { setSortKey(key); setSortDir("asc"); }
     }
 
-    // Unique member usernames for owner filter (org_admin only)
+    // Owner filter options — by member_id since username not available in AnswerListItemResponse
+    // TODO: show username once Rob adds it to the response
     const ownerOptions = useMemo(() => {
         return [...new Set(
             queries
-                .filter((q) => q.owner_kind === "member" && q.owner_username)
-                .map((q) => q.owner_username as string)
+                .filter((q) => q.owner_kind === "member" && q.owner_member_id != null)
+                .map((q) => String(q.owner_member_id))
         )].sort();
     }, [queries]);
 
@@ -208,15 +184,13 @@ export default function OrgQueriesPage({
         if (status === "pending") list = list.filter((q) => !q.paid);
         if (status === "approved") list = list.filter((q) => q.paid);
 
-        // For members, always filter to own queries
-        if (role === "member") {
-            list = list.filter((q) => q.owner_username === CURRENT_USERNAME);
-        } else if (ownerFilter.length > 0) {
+        // For members the API already scopes to their own answers
+        if (role === "org_admin" && ownerFilter.length > 0) {
             list = list.filter((q) => {
                 if (ownerFilter.includes("__api_key__") && q.owner_kind === "org_automation") return true;
-                if (q.owner_username && ownerFilter.includes(q.owner_username)) return true;
+                if (q.owner_member_id != null && ownerFilter.includes(String(q.owner_member_id))) return true;
                 return false;
-            });
+            })
         }
 
         if (search.trim()) {
@@ -241,10 +215,19 @@ export default function OrgQueriesPage({
             onRemove: () => setStatus("all"),
         },
         ...ownerFilter.map((o) => ({
-            label: o === "__api_key__" ? "API key" : o,
+            label: o === "__api_key__" ? "API key" : `Member #${o}`,
             onRemove: () => setOwnerFilter((prev) => prev.filter((x) => x !== o)),
         })),
     ].filter(Boolean) as { label: string; onRemove: () => void }[];
+
+    if (loading) {
+        return (
+            <div className="p-8 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader size={15} className="animate-adxc-spin" />
+                Loading…
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
@@ -403,7 +386,7 @@ export default function OrgQueriesPage({
                             <div className="flex items-center gap-2 min-w-0">
                                 {role === "org_admin" && (
                                     <span className="text-xs text-muted-foreground truncate">
-                                        {query.owner_kind === "org_automation" ? "API key" : query.owner_username}
+                                        {query.owner_kind === "org_automation" ? "API key" : `Member #${query.owner_member_id}`}
                                     </span>
                                 )}
                                 <span className="text-xs text-muted-foreground shrink-0">
@@ -466,7 +449,7 @@ export default function OrgQueriesPage({
                                                 {query.owner_kind === "org_automation" ? (
                                                     <Badge variant="outline" className="text-xs font-normal text-muted-foreground">API key</Badge>
                                                 ) : (
-                                                    <span className="text-sm text-muted-foreground">{query.owner_username}</span>
+                                                    <span className="text-sm text-muted-foreground">Member #{query.owner_member_id}</span>
                                                 )}
                                             </Link>
                                         </TableCell>

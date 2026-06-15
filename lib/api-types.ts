@@ -27,6 +27,26 @@ export type MembershipListResponse = {
     memberships: MembershipResponse[];
 };
 
+// GET /v2/orgs/{org_id}/members/me — returns one of these two shapes
+export type MemberMeMemberResponse = {
+    kind: "member";
+    org_id: string;
+    member_id: number | null;
+    role: "member" | "org_admin";
+    user_id: string;
+    username: string;
+};
+
+export type MemberMeServiceAccountResponse = {
+    kind: "org_automation";
+    org_id: string;
+    api_key_id: number;
+    name: string;
+    key_prefix: string;
+};
+
+export type MemberMeResponse = MemberMeMemberResponse | MemberMeServiceAccountResponse;
+
 export type AdminUserResponse = {
     id: string;
     username: string;
