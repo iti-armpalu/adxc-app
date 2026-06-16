@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import {
     Plus,
     Trash2,
@@ -26,48 +26,11 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { ApiKeyRecordResponse, CreateApiKeyResponse } from "@/lib/api-types";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
-type ApiKey = {
-    id: number;
-    org_id: number;
-    name: string;
-    key_prefix: string;
-    created_at: string;
-    deleted_at: string | null;
-};
 
-type CreatedKey = ApiKey & {
-    raw_token: string;
-};
 
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with GET /v2/orgs/{org_id}/api-keys
-// Returns ApiKeyListResponse: { keys: ApiKeyRecordResponse[] }
-// ---------------------------------------------------------------------------
-
-const MOCK_KEYS: ApiKey[] = [
-    {
-        id: 1,
-        org_id: 1,
-        name: "Production agent",
-        key_prefix: "adxc_prod_",
-        created_at: "2025-01-15T09:00:00Z",
-        deleted_at: null,
-    },
-    {
-        id: 2,
-        org_id: 1,
-        name: "Miro Sidekick integration",
-        key_prefix: "adxc_miro_",
-        created_at: "2025-03-01T10:00:00Z",
-        deleted_at: null,
-    },
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -131,11 +94,13 @@ function TokenReveal({ token }: { token: string }) {
 function CreateKeyDialog({
     open,
     onOpenChange,
+    orgId,
     onCreated,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    onCreated: (key: CreatedKey) => void;
+    orgId: string;
+    onCreated: (key: CreateApiKeyResponse) => void;
 }) {
     const [name, setName] = useState("");
     const [state, setState] = useState<"idle" | "error" | "loading" | "success">("idle");
@@ -161,21 +126,23 @@ function CreateKeyDialog({
             return;
         }
         setState("loading");
-        // TODO: POST /v2/orgs/{org_id}/api-keys
-        // body: CreateApiKeyRequest { name: string }
-        // returns: CreateApiKeyResponse { ...ApiKeyRecordResponse, raw_token: string }
-        await new Promise((r) => setTimeout(r, 800));
-        onCreated({
-            id: Math.floor(Math.random() * 9000) + 1000,
-            org_id: 1,
-            name,
-            key_prefix: `adxc_${name.toLowerCase().replace(/\s+/g, "_").slice(0, 8)}_`,
-            created_at: new Date().toISOString(),
-            deleted_at: null,
-            raw_token: `adxc_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`,
-        });
-        setState("success");
-        setTimeout(handleClose, 800);
+        try {
+            // POST /v2/orgs/{org_id}/api-keys — CreateApiKeyRequest { name }
+            // Returns CreateApiKeyResponse { ...ApiKeyRecordResponse, raw_token }
+            const res = await fetch(`/api/orgs/${orgId}/api-keys`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name }),
+            });
+            if (!res.ok) throw new Error("Failed to create key.");
+            const key: CreateApiKeyResponse = await res.json();
+            onCreated(key);
+            setState("success");
+            setTimeout(handleClose, 800);
+        } catch (err) {
+            setState("error");
+            setErrorMsg(err instanceof Error ? err.message : "Failed to create key.");
+        }
     }
 
     return (
@@ -233,10 +200,12 @@ function CreateKeyDialog({
 function DeleteKeyDialog({
     apiKey,
     onOpenChange,
+    orgId,
     onDelete,
 }: {
-    apiKey: ApiKey | null;
+    apiKey: ApiKeyRecordResponse | null;
     onOpenChange: (v: boolean) => void;
+    orgId: string;
     onDelete: (id: number) => void;
 }) {
     const [loading, setLoading] = useState(false);
@@ -244,11 +213,17 @@ function DeleteKeyDialog({
     async function handleDelete() {
         if (!apiKey) return;
         setLoading(true);
-        // TODO: DELETE /v2/orgs/{org_id}/api-keys/{key_id}
-        await new Promise((r) => setTimeout(r, 700));
-        onDelete(apiKey.id);
-        setLoading(false);
-        onOpenChange(false);
+        try {
+            // DELETE /v2/orgs/{org_id}/api-keys/{key_id}
+            const res = await fetch(`/api/orgs/${orgId}/api-keys/${apiKey.id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete key.");
+            onDelete(apiKey.id);
+            onOpenChange(false);
+        } catch {
+            // TODO: show error toast
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -283,7 +258,7 @@ function TokenRevealDialog({
     createdKey,
     onOpenChange,
 }: {
-    createdKey: CreatedKey | null;
+    createdKey: CreateApiKeyResponse | null;
     onOpenChange: (v: boolean) => void;
 }) {
     return (
@@ -325,14 +300,33 @@ export default function OrgApiKeysPage({
 }) {
     const { org_id } = use(paramsPromise);
 
-    const [keys, setKeys] = useState<ApiKey[]>(MOCK_KEYS);
-    const [createOpen, setCreateOpen] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<ApiKey | null>(null);
-    const [createdKey, setCreatedKey] = useState<CreatedKey | null>(null);
+    const [keys, setKeys] = useState<ApiKeyRecordResponse[]>([]);
+    const [loading, setLoading] = useState(true);
+    // GET /v2/orgs/{org_id}/api-keys → ApiKeyListResponse { keys }
+    useEffect(() => {
+        fetch(`/api/orgs/${org_id}/api-keys`)
+            .then((r) => r.json())
+            .then((data) => setKeys(data.keys ?? []))
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, [org_id]);
 
-    function handleCreated(key: CreatedKey) {
+    const [createOpen, setCreateOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<ApiKeyRecordResponse | null>(null);
+    const [createdKey, setCreatedKey] = useState<CreateApiKeyResponse | null>(null);
+
+    function handleCreated(key: CreateApiKeyResponse) {
         setKeys((prev) => [...prev, key]);
         setCreatedKey(key);
+    }
+
+    if (loading) {
+        return (
+            <div className="p-8 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader size={15} className="animate-adxc-spin" />
+                Loading…
+            </div>
+        );
     }
 
     return (
@@ -440,11 +434,13 @@ export default function OrgApiKeysPage({
             <CreateKeyDialog
                 open={createOpen}
                 onOpenChange={setCreateOpen}
+                orgId={org_id}
                 onCreated={handleCreated}
             />
             <DeleteKeyDialog
                 apiKey={deleteTarget}
                 onOpenChange={(v) => !v && setDeleteTarget(null)}
+                orgId={org_id}
                 onDelete={(id) => setKeys((prev) => prev.filter((k) => k.id !== id))}
             />
             <TokenRevealDialog
