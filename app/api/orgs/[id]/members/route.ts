@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import type { OrgMemberListResponse, OrgMemberResponse } from "@/lib/api-types";
 
 // GET /api/orgs/[id]/members → GET /v2/orgs/{org_id}/members
@@ -29,6 +29,10 @@ export async function POST(
         const data = await apiPost<OrgMemberResponse>(`/v2/orgs/${id}/members`, body);
         return NextResponse.json(data, { status: 201 });
     } catch (err) {
+        if (err instanceof ApiError) {
+            // Forward 409 (already member), 404 (user not found) directly to client
+            return NextResponse.json({ error: err.message }, { status: err.status });
+        }
         console.error("POST /api/orgs/[id]/members error:", err);
         return NextResponse.json({ error: "Failed to add member." }, { status: 500 });
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import {
   Plus,
   MoreHorizontal,
@@ -54,20 +54,7 @@ type Member = {
   updated_at: string;
 };
 
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with GET /v2/orgs/{org_id}/members
-// ---------------------------------------------------------------------------
 
-const MOCK_MEMBERS: Member[] = [
-  { member_id: 1, user_id: "usr_01", username: "sarah.chen",     role: "org_admin", created_at: "2024-10-14T09:00:00Z", updated_at: "2024-10-14T09:00:00Z" },
-  { member_id: 2, user_id: "usr_02", username: "james.whitfield", role: "member",    created_at: "2024-11-01T10:00:00Z", updated_at: "2024-11-01T10:00:00Z" },
-  { member_id: 3, user_id: "usr_03", username: "priya.nair",      role: "member",    created_at: "2025-01-15T09:00:00Z", updated_at: "2025-01-15T09:00:00Z" },
-  { member_id: 4, user_id: "usr_04", username: "tom.eriksen",     role: "member",    created_at: "2025-02-10T09:00:00Z", updated_at: "2025-02-10T09:00:00Z" },
-];
-
-// Current user — TODO: replace with auth session
-const CURRENT_USER_ID = "usr_01";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,15 +77,17 @@ function initials(username: string) {
 function AddMemberDialog({
   open,
   onOpenChange,
+  orgId,
   onAdd,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  orgId: string;
   onAdd: (member: Member) => void;
 }) {
-  const [userId, setUserId] = useState("");
-  const [role, setRole]     = useState<"member" | "org_admin">("member");
-  const [state, setState]   = useState<"idle" | "error" | "loading" | "success">("idle");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "org_admin">("member");
+  const [state, setState] = useState<"idle" | "error" | "loading" | "success">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   const isLoading = state === "loading";
@@ -107,7 +96,7 @@ function AddMemberDialog({
   function handleClose() {
     onOpenChange(false);
     setTimeout(() => {
-      setUserId("");
+      setEmail("");
       setRole("member");
       setState("idle");
       setErrorMsg("");
@@ -116,26 +105,41 @@ function AddMemberDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!userId.trim()) {
+    if (!email.trim()) {
       setState("error");
-      setErrorMsg("User ID is required.");
+      setErrorMsg("Email is required.");
       return;
     }
     setState("loading");
-    // TODO: POST /v2/orgs/{org_id}/members
-    // body: AddMemberRequest { user_id: string, role: "member" | "org_admin" }
-    // returns: OrgMemberResponse
-    await new Promise((r) => setTimeout(r, 800));
-    onAdd({
-      member_id: Math.floor(Math.random() * 9000) + 1000,
-      user_id: userId,
-      username: userId,
-      role,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    setState("success");
-    setTimeout(handleClose, 900);
+    try {
+      // POST /v2/orgs/{org_id}/members — AddMemberRequest { email, role }
+      const res = await fetch(`/api/orgs/${orgId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
+      if (res.status === 409) {
+        setState("error");
+        setErrorMsg("This user is already a member of the organisation.");
+        return;
+      }
+      if (res.status === 404) {
+        setState("error");
+        setErrorMsg("No user found with that email address.");
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail ?? "Failed to add member.");
+      }
+      const member = await res.json();
+      onAdd(member);
+      setState("success");
+      setTimeout(handleClose, 900);
+    } catch (err) {
+      setState("error");
+      setErrorMsg(err instanceof Error ? err.message : "Failed to add member.");
+    }
   }
 
   return (
@@ -144,7 +148,7 @@ function AddMemberDialog({
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Add an existing platform user to your organisation.
+            Add an existing platform user to your organisation by email.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
@@ -155,19 +159,17 @@ function AddMemberDialog({
             </Alert>
           )}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="user-id">User ID</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="user-id"
-              placeholder="e.g. usr_01hx4k2m9n"
-              value={userId}
-              onChange={(e) => { setUserId(e.target.value); setState("idle"); }}
+              id="email"
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setState("idle"); }}
               disabled={isLoading || isSuccess}
               autoFocus
-              className={cn(state === "error" && !userId.trim() && "border-destructive")}
+              className={cn(state === "error" && !email.trim() && "border-destructive")}
             />
-            <p className="text-xs text-muted-foreground">
-              Ask your platform admin for the user's ID.
-            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Role</Label>
@@ -211,10 +213,12 @@ function AddMemberDialog({
 function RemoveMemberDialog({
   member,
   onOpenChange,
+  orgId,
   onRemove,
 }: {
   member: Member | null;
   onOpenChange: (v: boolean) => void;
+  orgId: string;
   onRemove: (id: number) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -222,11 +226,17 @@ function RemoveMemberDialog({
   async function handleRemove() {
     if (!member) return;
     setLoading(true);
-    // TODO: DELETE /v2/orgs/{org_id}/members/{member_id}
-    await new Promise((r) => setTimeout(r, 700));
-    onRemove(member.member_id);
-    setLoading(false);
-    onOpenChange(false);
+    try {
+      // DELETE /v2/orgs/{org_id}/members/{member_id}
+      const res = await fetch(`/api/orgs/${orgId}/members/${member.member_id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      onRemove(member.member_id);
+      onOpenChange(false);
+    } catch {
+      // TODO: show error toast
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -264,24 +274,60 @@ export default function OrgMembersPage({
 }) {
   const { org_id } = use(paramsPromise);
 
-  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+  // GET /v2/orgs/{org_id}/members — load members list
+  useEffect(() => {
+    fetch(`/api/orgs/${org_id}/members`)
+      .then((r) => r.json())
+      .then((data) => setMembers(data.members ?? []))
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [org_id]);
+
+  // GET /v2/orgs/{org_id}/members/me — get current user_id for (you) label
+  useEffect(() => {
+    fetch(`/api/orgs/${org_id}/members/me`)
+      .then((r) => r.json())
+      .then((me) => { if (me.kind === "member") setCurrentUserId(me.user_id); })
+      .catch(() => { });
+  }, [org_id]);
+
   async function handleSetRole(memberId: number, role: "member" | "org_admin") {
     setUpdatingId(memberId);
-    // TODO: POST /v2/orgs/{org_id}/members/{member_id}/set_role
-    // body: SetRoleRequest { role: "member" | "org_admin" }
-    await new Promise((r) => setTimeout(r, 600));
-    setMembers((prev) =>
-      prev.map((m) => m.member_id === memberId ? { ...m, role } : m)
-    );
-    setUpdatingId(null);
+    try {
+      // POST /v2/orgs/{org_id}/members/{member_id}/set_role — SetRoleRequest { role }
+      const res = await fetch(`/api/orgs/${org_id}/members/${memberId}/set_role`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const updated = await res.json();
+      setMembers((prev) => prev.map((m) => m.member_id === memberId ? updated : m));
+    } catch {
+      // TODO: show error toast
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
-  const adminCount  = members.filter((m) => m.role === "org_admin").length;
+  const adminCount = members.filter((m) => m.role === "org_admin").length;
   const memberCount = members.filter((m) => m.role === "member").length;
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader size={15} className="animate-adxc-spin" />
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <>
@@ -308,7 +354,7 @@ export default function OrgMembersPage({
         {/* ── Mobile: card list ────────────────────────────────────────── */}
         <div className="md:hidden flex flex-col gap-3">
           {members.map((member) => {
-            const isCurrentUser = member.user_id === CURRENT_USER_ID;
+            const isCurrentUser = member.user_id === currentUserId;
             return (
               <div
                 key={member.member_id}
@@ -382,7 +428,7 @@ export default function OrgMembersPage({
         {/* ── Desktop: list ─────────────────────────────────────────────── */}
         <div className="hidden md:block border overflow-hidden bg-card">
           {members.map((member, i) => {
-            const isCurrentUser = member.user_id === CURRENT_USER_ID;
+            const isCurrentUser = member.user_id === currentUserId;
             return (
               <div
                 key={member.member_id}
@@ -466,11 +512,13 @@ export default function OrgMembersPage({
       <AddMemberDialog
         open={addOpen}
         onOpenChange={setAddOpen}
+        orgId={org_id}
         onAdd={(member) => setMembers((prev) => [...prev, member])}
       />
       <RemoveMemberDialog
         member={removeTarget}
         onOpenChange={(v) => !v && setRemoveTarget(null)}
+        orgId={org_id}
         onRemove={(id) => setMembers((prev) => prev.filter((m) => m.member_id !== id))}
       />
     </>

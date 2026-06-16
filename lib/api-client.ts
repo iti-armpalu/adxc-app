@@ -11,6 +11,14 @@ async function authHeader(): Promise<HeadersInit> {
     return { Authorization: `Basic ${credentials}` };
 }
 
+export class ApiError extends Error {
+    status: number;
+    constructor(status: number, path: string) {
+        super(`API ${status}: ${path}`);
+        this.status = status;
+    }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE}${path}`, {
         headers: {
@@ -20,7 +28,7 @@ export async function apiGet<T>(path: string): Promise<T> {
         next: { revalidate: 0 },
     });
 
-    if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+    if (!res.ok) throw new ApiError(res.status, path);
     return res.json();
 }
 
@@ -34,7 +42,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
         body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+    if (!res.ok) throw new ApiError(res.status, path);
     return res.json();
 }
 
@@ -44,5 +52,5 @@ export async function apiDelete(path: string): Promise<void> {
         headers: await authHeader(),
     });
 
-    if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+    if (!res.ok) throw new ApiError(res.status, path);
 }
