@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiDelete } from "@/lib/api-client";
 
 // DELETE /api/orgs/[id]/members/[member_id] → DELETE /v2/orgs/{org_id}/members/{member_id}
+// Runtime: org_admin only
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string; member_id: string }> }
