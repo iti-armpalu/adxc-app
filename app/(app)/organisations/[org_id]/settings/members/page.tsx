@@ -453,54 +453,58 @@ export default function OrgMembersPage({
                     Added {formatDate(member.created_at)}
                   </p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs font-normal shrink-0",
-                    member.role === "org_admin"
-                      ? "text-primary border-primary/30 bg-primary/5"
-                      : "text-muted-foreground"
+                <div className="flex items-center justify-end gap-2 w-36 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs font-normal",
+                      member.role === "org_admin"
+                        ? "text-primary border-primary/30 bg-primary/5"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {member.role === "org_admin" ? "Org admin" : "Member"}
+                  </Badge>
+                  {updatingId === member.member_id && (
+                    <Loader size={14} className="animate-adxc-spin text-muted-foreground shrink-0" />
                   )}
-                >
-                  {member.role === "org_admin" ? "Org admin" : "Member"}
-                </Badge>
-                {updatingId === member.member_id && (
-                  <Loader size={14} className="animate-adxc-spin text-muted-foreground shrink-0" />
-                )}
-                {!isCurrentUser && updatingId !== member.member_id && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      >
-                        <MoreHorizontal size={15} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52 bg-card text-card-foreground">
-                      {member.role === "member" ? (
-                        <DropdownMenuItem onClick={() => handleSetRole(member.member_id, "org_admin")}>
-                          <ShieldCheck className="w-4 h-4 mr-2" />
-                          Make org admin
+                  {!isCurrentUser && updatingId !== member.member_id ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        >
+                          <MoreHorizontal size={15} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52 bg-card text-card-foreground">
+                        {member.role === "member" ? (
+                          <DropdownMenuItem onClick={() => handleSetRole(member.member_id, "org_admin")}>
+                            <ShieldCheck className="w-4 h-4 mr-2" />
+                            Make org admin
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleSetRole(member.member_id, "member")}>
+                            <ShieldMinus className="w-4 h-4 mr-2" />
+                            Remove admin role
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setRemoveTarget(member)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remove from org
                         </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem onClick={() => handleSetRole(member.member_id, "member")}>
-                          <ShieldMinus className="w-4 h-4 mr-2" />
-                          Remove admin role
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setRemoveTarget(member)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Remove from org
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <div className="w-8 h-8 shrink-0" />
+                  )}
+                </div>
               </div>
             );
           })}

@@ -95,8 +95,6 @@ function SectionHeader({
 
 // ---------------------------------------------------------------------------
 // Page
-// ---------------------------------------------------------------------------
-
 export default function OrgOverviewPage({
     params: paramsPromise,
 }: {
@@ -144,9 +142,10 @@ export default function OrgOverviewPage({
             .finally(() => setLoading(false));
     }, [org_id]);
 
+    const pendingAnswers = answers.filter((a) => !a.paid).slice(0, 4);
     const pendingCount = answers.filter((a) => !a.paid).length;
     const approvedCount = answers.filter((a) => a.paid).length;
-    const recentAnswers = answers.slice(0, 3);
+    const recentApproved = answers.filter((a) => a.paid).slice(0, 4);
 
     return (
         <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
@@ -195,76 +194,81 @@ export default function OrgOverviewPage({
                 />
             </div>
 
-            {/* ── Recent answers ───────────────────────────────────────────────── */}
-            <div>
-                <SectionHeader title="Recent queries" href={`${base}/queries`} />
-                {loading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                        <Loader size={13} className="animate-adxc-spin" /> Loading…
+            {/* ── Pending + Recent ─────────────────────────────────────────────── */}
+            <div className="flex flex-col gap-6">
+
+                {/* Pending approval — hidden when empty */}
+                {pendingAnswers.length > 0 && (
+                    <div>
+                        <SectionHeader title="Pending approval" href={`${base}/queries`} />
+                        <div className="bg-card border overflow-hidden">
+                            {loading ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-4">
+                                    <Loader size={13} className="animate-adxc-spin" /> Loading…
+                                </div>
+                            ) : (
+                                pendingAnswers.map((answer, i) => (
+                                    <Link
+                                        key={answer.uuid}
+                                        href={`${base}/queries/${answer.uuid}?owner_member_id=${answer.owner_member_id ?? ""}&owner_kind=${answer.owner_kind}`}
+                                        className={`group flex items-center gap-4 px-5 py-4 hover:bg-accent/40 transition-colors ${i < pendingAnswers.length - 1 ? "border-b border-border" : ""}`}
+                                    >
+                                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                                {answer.question}
+                                            </p>
+                                            <span className="text-xs text-muted-foreground shrink-0">·</span>
+                                            <p className="text-xs text-muted-foreground shrink-0">{timeAgo(answer.created_at)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-sm font-semibold tabular-nums">{formatTokens(answer.price)}</span>
+                                            <Badge variant="outline" className="text-xs font-normal text-warning border-warning/40 bg-warning/5">
+                                                Pending
+                                            </Badge>
+                                        </div>
+                                    </Link>
+                                ))
+                            )}
+                        </div>
                     </div>
-                ) : recentAnswers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4">No queries yet.</p>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        {recentAnswers.map((answer) => (
-                            <Link
-                                key={answer.uuid}
-                                href={`${base}/queries/${answer.uuid}?owner_member_id=${answer.owner_member_id ?? ""}&owner_kind=${answer.owner_kind}`}
-                                className="group bg-card border p-4 flex flex-col gap-2 hover:border-border-3 transition-colors sm:flex-row sm:items-start sm:gap-4"
-                            >
-                                <div className="hidden sm:block mt-0.5 shrink-0">
-                                    {answer.paid ? (
-                                        <CheckCircle size={15} className="text-success" />
-                                    ) : (
-                                        <Clock size={15} className="text-warning" />
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                                        {answer.question}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {timeAgo(answer.created_at)}
-                                    </p>
-                                </div>
-                                <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1.5 shrink-0">
-                                    <span className="text-sm font-medium tabular-nums">
-                                        {formatTokens(answer.price)}
-                                    </span>
-                                    {answer.paid ? (
+                )}
+
+                {/* Recent approved queries */}
+                <div>
+                    <SectionHeader title="Recent queries" href={`${base}/queries`} />
+                    {loading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                            <Loader size={13} className="animate-adxc-spin" /> Loading…
+                        </div>
+                    ) : recentApproved.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4">No queries yet.</p>
+                    ) : (
+                        <div className="bg-card border overflow-hidden">
+                            {recentApproved.map((answer, i) => (
+                                <Link
+                                    key={answer.uuid}
+                                    href={`${base}/queries/${answer.uuid}?owner_member_id=${answer.owner_member_id ?? ""}&owner_kind=${answer.owner_kind}`}
+                                    className={`group flex items-center gap-4 px-5 py-4 hover:bg-accent/40 transition-colors ${i < recentApproved.length - 1 ? "border-b border-border" : ""}`}
+                                >
+                                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                                        <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                            {answer.question}
+                                        </p>
+                                        <span className="text-xs text-muted-foreground shrink-0">·</span>
+                                        <p className="text-xs text-muted-foreground shrink-0">{timeAgo(answer.created_at)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-sm font-semibold tabular-nums">{formatTokens(answer.price)}</span>
                                         <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">
                                             Approved
                                         </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-xs font-normal text-warning border-warning/40 bg-warning/5">
-                                            Pending
-                                        </Badge>
-                                    )}
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* ── Quick actions ────────────────────────────────────────────────── */}
-            <div>
-                <h2 className="text-sm font-semibold mb-3">Quick actions</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Link
-                        href={`${base}/queries`}
-                        className="group flex items-center gap-3 bg-card border p-4 hover:border-border-3 transition-colors"
-                    >
-                        <div className="w-8 h-8 bg-accent flex items-center justify-center text-muted-foreground shrink-0">
-                            <CheckCircle size={15} />
+                                    </div>
+                                </Link>
+                            ))}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">View queries</p>
-                            <p className="text-xs text-muted-foreground">Review your queries and answers</p>
-                        </div>
-                        <ArrowRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </Link>
+                    )}
                 </div>
+
             </div>
 
         </div>

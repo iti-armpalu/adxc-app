@@ -236,86 +236,37 @@ export default function AdminOverviewPage() {
             </div>
 
             {/* ── Two column content ───────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="flex flex-col gap-6">
 
-                {/* ── Pending approval ─────────────────────────────────────────── */}
-                <div>
-                    <SectionHeader
-                        title="Pending approval"
-                        href={PENDING_QUERIES_URL}
-                    />
-                    <div className="flex flex-col gap-2">
-                        {queriesLoading ? (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                                <Loader size={13} className="animate-adxc-spin" /> Loading…
-                            </div>
-                        ) : pendingQueries.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-4">No pending queries.</p>
-                        ) : null}
-                        {pendingQueries.map((query) => {
-                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
-                            return (
-                                <Link
-                                    key={query.uuid}
-                                    href={detailHref}
-                                    className="group bg-card border p-4 flex flex-col gap-2.5 hover:border-border-3 transition-colors"
-                                >
-                                    <p className="text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                                        {query.question}
-                                    </p>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <span className="text-xs text-muted-foreground truncate">
-                                                {query.org_name}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground shrink-0">
-                                                · {timeAgo(query.created_at)}
-                                            </span>
-                                        </div>
-                                        <span className="text-sm font-semibold tabular-nums shrink-0">
-                                            {formatTokens(query.price)}
-                                        </span>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* ── Right column ─────────────────────────────────────────────── */}
-                <div className="flex flex-col gap-6">
-
-                    {/* Recent queries */}
+                {/* ── Pending approval — hidden when empty ─────────────────────── */}
+                {pendingQueries.length > 0 && (
                     <div>
-                        <SectionHeader
-                            title="Recent queries"
-                            href="/admin/queries"
-                        />
+                        <SectionHeader title="Pending approval" href={PENDING_QUERIES_URL} />
                         <div className="bg-card border overflow-hidden">
                             {queriesLoading && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-4">
                                     <Loader size={13} className="animate-adxc-spin" /> Loading…
                                 </div>
                             )}
-                            {recentApproved.map((query, i) => {
+                            {pendingQueries.map((query, i) => {
                                 const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                                 return (
                                     <Link
                                         key={query.uuid}
                                         href={detailHref}
-                                        className={`group flex items-start gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < recentApproved.length - 1 ? "border-b border-border" : ""
-                                            }`}
+                                        className={`group flex items-center gap-4 px-5 py-4 hover:bg-accent/40 transition-colors ${i < pendingQueries.length - 1 ? "border-b border-border" : ""}`}
                                     >
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm truncate group-hover:text-primary transition-colors">
+                                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                                                 {query.question}
                                             </p>
-                                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                            <span className="text-xs text-muted-foreground shrink-0">·</span>
+                                            <p className="text-xs text-muted-foreground shrink-0">
                                                 {query.org_name}
                                             </p>
                                         </div>
-                                        <div className="flex flex-col items-end gap-0.5 shrink-0">
-                                            <span className="text-xs font-medium tabular-nums">
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-sm font-semibold tabular-nums">
                                                 {formatTokens(query.price)}
                                             </span>
                                             <span className="text-xs text-muted-foreground">
@@ -327,35 +278,74 @@ export default function AdminOverviewPage() {
                             })}
                         </div>
                     </div>
+                )}
 
-                    {/* Recent users */}
-                    <div>
-                        <SectionHeader title="Recent users" href="/admin/users" />
-                        <div className="bg-card border overflow-hidden">
-                            {recentUsers.map((user, i) => (
+                {/* ── Recent queries ───────────────────────────────────────────── */}
+                <div>
+                    <SectionHeader title="Recent queries" href="/admin/queries" />
+                    <div className="bg-card border overflow-hidden">
+                        {queriesLoading && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-4">
+                                <Loader size={13} className="animate-adxc-spin" /> Loading…
+                            </div>
+                        )}
+                        {recentApproved.map((query, i) => {
+                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
+                            return (
                                 <Link
-                                    key={user.id}
-                                    href="/admin/users"
-                                    className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < recentUsers.length - 1 ? "border-b border-border" : ""
-                                        }`}
+                                    key={query.uuid}
+                                    href={detailHref}
+                                    className={`group flex items-center gap-4 px-5 py-4 hover:bg-accent/40 transition-colors ${i < recentApproved.length - 1 ? "border-b border-border" : ""}`}
                                 >
-                                    <Avatar className="w-7 h-7 shrink-0">
-                                        <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                                            {initials(user.username)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm font-medium flex-1 truncate">
-                                        {user.username}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground shrink-0">
-                                        {timeAgo(user.created_at)}
-                                    </span>
+                                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                                        <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                            {query.question}
+                                        </p>
+                                        <span className="text-xs text-muted-foreground shrink-0">·</span>
+                                        <p className="text-xs text-muted-foreground shrink-0">
+                                            {query.org_name}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-sm font-semibold tabular-nums">
+                                            {formatTokens(query.price)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                            {timeAgo(query.created_at)}
+                                        </span>
+                                    </div>
                                 </Link>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
-
                 </div>
+
+                {/* ── Recent users ─────────────────────────────────────────────── */}
+                <div>
+                    <SectionHeader title="Recent users" href="/admin/users" />
+                    <div className="bg-card border overflow-hidden">
+                        {recentUsers.map((user, i) => (
+                            <Link
+                                key={user.id}
+                                href="/admin/users"
+                                className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < recentUsers.length - 1 ? "border-b border-border" : ""}`}
+                            >
+                                <Avatar className="w-7 h-7 shrink-0">
+                                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                                        {initials(user.username)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-medium flex-1 truncate">
+                                    {user.username}
+                                </span>
+                                <span className="text-xs text-muted-foreground shrink-0">
+                                    {timeAgo(user.created_at)}
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+
             </div>
         </div>
     );

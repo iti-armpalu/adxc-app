@@ -89,6 +89,22 @@ function OrgSwitcher({
 
   if (!current) return null;
 
+  // Single org — no need for a dropdown
+  if (memberships.length === 1) {
+    return (
+      <div className="flex items-center gap-2.5 w-full px-3 py-2.5">
+        <Avatar className="w-6 h-6 shrink-0">
+          <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+            {initials(current.org_name)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="flex-1 text-left text-sm font-medium text-sidebar-foreground truncate">
+          {current.org_name}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
