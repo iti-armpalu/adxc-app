@@ -27,6 +27,17 @@ export type MembershipListResponse = {
     memberships: MembershipResponse[];
 };
 
+// GET /v2/orgs — new response shape (replaced MembershipListResponse in spec update)
+// role/member_id now lives on GET /v2/orgs/{org_id}/members/me
+export type OrgSummaryResponse = {
+    org_id: string;
+    org_name: string;
+};
+
+export type OrgSummaryListResponse = {
+    orgs: OrgSummaryResponse[];
+};
+
 // GET /v2/orgs/{org_id}/members/me — returns one of these two shapes
 export type MemberMeMemberResponse = {
     kind: "member";

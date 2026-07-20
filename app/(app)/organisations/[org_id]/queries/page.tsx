@@ -79,10 +79,10 @@ function timeAgo(iso: string) {
     return `${mins}m ago`;
 }
 
-function formatCurrency(value: string) {
-    return new Intl.NumberFormat("en-US", {
-        style: "currency", currency: "USD", minimumFractionDigits: 2,
-    }).format(parseFloat(value));
+function formatTokens(value: string) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return "—";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,7 +376,7 @@ export default function OrgQueriesPage({
                 {filtered.map((query) => (
                     <Link
                         key={query.uuid}
-                        href={`${base}/queries/${query.uuid}`}
+                        href={`${base}/queries/${query.uuid}?owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`}
                         className="group bg-card border p-4 flex flex-col gap-2.5 hover:border-border-3 transition-colors"
                     >
                         <p className="text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors">
@@ -394,7 +394,7 @@ export default function OrgQueriesPage({
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-sm font-medium tabular-nums">{formatCurrency(query.price)}</span>
+                                <span className="text-sm font-medium tabular-nums">{formatTokens(query.price)}</span>
                                 {query.paid ? (
                                     <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Approved</Badge>
                                 ) : (
@@ -433,7 +433,7 @@ export default function OrgQueriesPage({
                             </TableRow>
                         )}
                         {filtered.map((query) => {
-                            const detailHref = `${base}/queries/${query.uuid}`;
+                            const detailHref = `${base}/queries/${query.uuid}?owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                             return (
                                 <TableRow key={query.uuid} className="group cursor-pointer hover:bg-accent/40">
                                     <TableCell className="pl-4 max-w-[400px] py-3">
@@ -460,7 +460,7 @@ export default function OrgQueriesPage({
                                         </Link>
                                     </TableCell>
                                     <TableCell className="text-sm font-medium tabular-nums">
-                                        <Link href={detailHref}>{formatCurrency(query.price)}</Link>
+                                        <Link href={detailHref}>{formatTokens(query.price)}</Link>
                                     </TableCell>
                                     <TableCell className="pr-4">
                                         <Link href={detailHref}>

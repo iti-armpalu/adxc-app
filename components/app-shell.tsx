@@ -41,18 +41,19 @@ export function AppShell({
       .catch(() => setName("unknown"));
   }, []);
 
-  // Fetch real org memberships on mount
+  // Fetch org list on mount — GET /v2/orgs → OrgSummaryListResponse { orgs: [{ org_id, org_name }] }
+  // NOTE: role and member_id no longer in this response — fetched per-org via GET /v2/orgs/{org_id}/members/me
   useEffect(() => {
     fetch("/api/orgs")
       .then((r) => r.json())
       .then((data) => {
-        if (data.memberships) {
+        if (data.orgs) {
           setMemberships(
-            data.memberships.map((m: any) => ({
+            data.orgs.map((m: any) => ({
               org_id: String(m.org_id),
               org_name: m.org_name,
-              member_id: m.member_id,
-              role: m.role,
+              member_id: 0,   // not available in OrgSummaryResponse
+              role: "member" as const, // not available — fetched per-org if needed
             }))
           );
         }

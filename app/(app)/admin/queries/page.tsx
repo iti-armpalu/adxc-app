@@ -42,7 +42,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { AnswerListItemResponse, MembershipResponse } from "@/lib/api-types";
+import type { AnswerListItemResponse, OrgSummaryResponse } from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,12 +90,10 @@ function timeAgo(iso: string) {
     return `${mins}m ago`;
 }
 
-export function formatCurrency(value: string) {
-    return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-    }).format(parseFloat(value));
+export function formatTokens(value: string) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return "—";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +145,7 @@ function AdminQueriesPageInner() {
         fetch("/api/orgs")
             .then((r) => r.json())
             .then(async (data) => {
-                const memberships: MembershipResponse[] = data.memberships ?? [];
+                const memberships: OrgSummaryResponse[] = data.orgs ?? [];
                 const results = await Promise.allSettled(
                     memberships.map((m) =>
                         fetch(`/api/orgs/${m.org_id}/answers`)
@@ -463,7 +461,7 @@ function AdminQueriesPageInner() {
                                     <span className="text-xs text-muted-foreground shrink-0">· {timeAgo(query.created_at)}</span>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-sm font-medium tabular-nums">{formatCurrency(query.price)}</span>
+                                    <span className="text-sm font-medium tabular-nums">{formatTokens(query.price)}</span>
                                     {query.paid ? (
                                         <Badge variant="outline" className="text-xs font-normal text-success border-success/40 bg-success/5">Approved</Badge>
                                     ) : (
@@ -536,7 +534,7 @@ function AdminQueriesPageInner() {
                                         </Link>
                                     </TableCell>
                                     <TableCell className="text-sm font-medium tabular-nums">
-                                        <Link href={detailHref}>{formatCurrency(query.price)}</Link>
+                                        <Link href={detailHref}>{formatTokens(query.price)}</Link>
                                     </TableCell>
                                     <TableCell className="pr-4">
                                         <Link href={detailHref}>

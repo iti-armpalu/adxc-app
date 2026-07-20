@@ -8,8 +8,10 @@ import {
     FileText,
     Clock,
     ArrowRight,
+    Loader,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AnswerListItemResponse, OrgSummaryResponse } from "@/lib/api-types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ---------------------------------------------------------------------------
@@ -22,81 +24,19 @@ type RecentUser = {
     created_at: string;
 };
 
-// TODO: replace when platform-wide queries endpoint is available (not yet in spec)
-const MOCK_PENDING_QUERIES = [
-    {
-        uuid: "ans_9a1b2c3d",
-        question: "What are the top purchase drivers for Gen Z consumers in the UK sportswear market?",
-        price: "12.50",
-        org_id: 1,
-        org_name: "Unilever Global Insights",
-        created_at: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
-    },
-    {
-        uuid: "ans_4e5f6g7h",
-        question: "How does Reddit sentiment on EV brands compare to X sentiment in Q1 2025?",
-        price: "8.00",
-        org_id: 2,
-        org_name: "Nike Consumer Intelligence",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    },
-    {
-        uuid: "ans_7u8v9w0x",
-        question: "What are current consumer attitudes toward luxury resale platforms in Western Europe?",
-        price: "22.00",
-        org_id: 8,
-        org_name: "LVMH Brand Intelligence",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    },
-    {
-        uuid: "ans_9g0h1i2j",
-        question: "What is the share of voice for Heineken versus craft beer brands on social media in Germany?",
-        price: "11.00",
-        org_id: 9,
-        org_name: "Heineken Consumer Insights",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 9).toISOString(),
-    },
-];
+type QueryItem = {
+    uuid: string;
+    question: string;
+    price: string;
+    paid: boolean;
+    org_id: string;
+    org_name: string;
+    owner_member_id: number | null;
+    owner_kind: "member" | "org_automation";
+    created_at: string;
+};
 
-// TODO: replace when platform-wide queries endpoint is available (not yet in spec)
-const MOCK_RECENT_QUERIES = [
-    {
-        uuid: "ans_8i9j0k1l",
-        question: "What percentage of US households earning over $100k use meal-kit delivery services?",
-        price: "6.50",
-        paid: true,
-        org_id: 4,
-        org_name: "Procter & Gamble Brand Strategy",
-        created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    },
-    {
-        uuid: "ans_2m3n4o5p",
-        question: "Brand awareness scores for challenger fintech brands among 25–34 year olds in Australia.",
-        price: "15.00",
-        paid: true,
-        org_id: 1,
-        org_name: "Unilever Global Insights",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 1).toISOString(),
-    },
-    {
-        uuid: "ans_3q4r5s6t",
-        question: "How has Diageo's Guinness brand perception shifted among women aged 21–35 in the US since 2022?",
-        price: "18.00",
-        paid: true,
-        org_id: 5,
-        org_name: "Diageo Audience Labs",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    },
-    {
-        uuid: "ans_1y2z3a4b",
-        question: "Spotify vs Apple Music brand loyalty metrics among premium subscribers in the Nordics.",
-        price: "9.50",
-        paid: true,
-        org_id: 10,
-        org_name: "Spotify Audience Research",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    },
-];
+
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -116,10 +56,10 @@ function initials(username: string) {
     return username.slice(0, 2).toUpperCase();
 }
 
-function formatCurrency(value: string) {
-    return new Intl.NumberFormat("en-US", {
-        style: "currency", currency: "USD", minimumFractionDigits: 2,
-    }).format(parseFloat(value));
+function formatTokens(value: string) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return "—";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 const PENDING_QUERIES_URL = "/admin/queries?status=pending";
@@ -183,6 +123,8 @@ export default function AdminOverviewPage() {
     const [totalUsers, setTotalUsers] = useState<number | "…">("…");
     const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
     const [activeOrgs, setActiveOrgs] = useState<number | "…">("…");
+    const [allQueries, setAllQueries] = useState<QueryItem[]>([]);
+    const [queriesLoading, setQueriesLoading] = useState(true);
 
     // GET /v2/admin/users → user count + recent users list
     useEffect(() => {
@@ -209,6 +151,48 @@ export default function AdminOverviewPage() {
             })
             .catch(() => { });
     }, []);
+
+    // Fan-out: GET /v2/orgs → GET /v2/orgs/{org_id}/answers per org, merge results
+    useEffect(() => {
+        fetch("/api/orgs")
+            .then((r) => r.json())
+            .then(async (data) => {
+                const orgs: OrgSummaryResponse[] = data.orgs ?? [];
+                const results = await Promise.allSettled(
+                    orgs.map((o) =>
+                        fetch(`/api/orgs/${o.org_id}/answers`)
+                            .then((r) => r.json())
+                            .then((d) => ({ org: o, answers: d.answers ?? [] }))
+                    )
+                );
+                const merged: QueryItem[] = [];
+                results.forEach((result) => {
+                    if (result.status === "fulfilled") {
+                        const { org, answers } = result.value;
+                        answers.forEach((a: AnswerListItemResponse) => {
+                            merged.push({
+                                uuid: a.uuid,
+                                question: a.question,
+                                price: a.price,
+                                paid: a.paid,
+                                org_id: org.org_id,
+                                org_name: org.org_name,
+                                owner_member_id: a.owner_member_id,
+                                owner_kind: a.owner_kind,
+                                created_at: a.created_at,
+                            });
+                        });
+                    }
+                });
+                merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                setAllQueries(merged);
+            })
+            .catch(() => { })
+            .finally(() => setQueriesLoading(false));
+    }, []);
+
+    const pendingQueries = allQueries.filter((q) => !q.paid).slice(0, 4);
+    const recentApproved = allQueries.filter((q) => q.paid).slice(0, 4);
 
     return (
         <div className="p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-6">
@@ -237,14 +221,14 @@ export default function AdminOverviewPage() {
                 />
                 <StatCard
                     label="Total queries"
-                    value={"—"} // TODO: platform-wide queries endpoint not yet in spec
+                    value={queriesLoading ? "…" : allQueries.length}
                     icon={FileText}
                     sub="all time"
                     href="/admin/queries"
                 />
                 <StatCard
                     label="Pending approval"
-                    value={"—"} // TODO: platform-wide queries endpoint not yet in spec
+                    value={queriesLoading ? "…" : allQueries.filter((q) => !q.paid).length}
                     icon={Clock}
                     sub="need action"
                     href={PENDING_QUERIES_URL}
@@ -261,8 +245,15 @@ export default function AdminOverviewPage() {
                         href={PENDING_QUERIES_URL}
                     />
                     <div className="flex flex-col gap-2">
-                        {MOCK_PENDING_QUERIES.map((query) => {
-                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_kind=member`;
+                        {queriesLoading ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                                <Loader size={13} className="animate-adxc-spin" /> Loading…
+                            </div>
+                        ) : pendingQueries.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-4">No pending queries.</p>
+                        ) : null}
+                        {pendingQueries.map((query) => {
+                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                             return (
                                 <Link
                                     key={query.uuid}
@@ -282,7 +273,7 @@ export default function AdminOverviewPage() {
                                             </span>
                                         </div>
                                         <span className="text-sm font-semibold tabular-nums shrink-0">
-                                            {formatCurrency(query.price)}
+                                            {formatTokens(query.price)}
                                         </span>
                                     </div>
                                 </Link>
@@ -301,13 +292,18 @@ export default function AdminOverviewPage() {
                             href="/admin/queries"
                         />
                         <div className="bg-card border overflow-hidden">
-                            {MOCK_RECENT_QUERIES.map((query, i) => {
-                                const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_kind=member`;
+                            {queriesLoading && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-4">
+                                    <Loader size={13} className="animate-adxc-spin" /> Loading…
+                                </div>
+                            )}
+                            {recentApproved.map((query, i) => {
+                                const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                                 return (
                                     <Link
                                         key={query.uuid}
                                         href={detailHref}
-                                        className={`group flex items-start gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < MOCK_RECENT_QUERIES.length - 1 ? "border-b border-border" : ""
+                                        className={`group flex items-start gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${i < recentApproved.length - 1 ? "border-b border-border" : ""
                                             }`}
                                     >
                                         <div className="flex-1 min-w-0">
@@ -320,7 +316,7 @@ export default function AdminOverviewPage() {
                                         </div>
                                         <div className="flex flex-col items-end gap-0.5 shrink-0">
                                             <span className="text-xs font-medium tabular-nums">
-                                                {formatCurrency(query.price)}
+                                                {formatTokens(query.price)}
                                             </span>
                                             <span className="text-xs text-muted-foreground">
                                                 {timeAgo(query.created_at)}

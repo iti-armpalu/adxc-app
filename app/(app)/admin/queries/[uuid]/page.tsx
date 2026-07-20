@@ -15,31 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type QueryDetail = {
-    uuid: string;
-    question: string;
-    abstract: string;
-    price: string;
-    paid: boolean;
-    answer: string | null;
-    // Context carried from list via query params
-    // TODO: remove once GET /v1/answers/{uuid} includes org + owner info
-    org_id: number;
-    org_name: string;
-    owner_kind: "member" | "org_automation";
-    owner_username: string | null;
-    created_at: string;
-    paid_at: string | null;
-};
-
-// ---------------------------------------------------------------------------
-// (Mock data removed — page now fetches from GET /v1/answers/{uuid})
-// ---------------------------------------------------------------------------
+import type { SourceAttribution } from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,12 +31,10 @@ function formatDate(iso: string) {
     });
 }
 
-function formatCurrency(value: string) {
-    return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-    }).format(parseFloat(value));
+function formatTokens(value: string) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return "—";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,18 +83,19 @@ export default function QueryDetailPage({
     const [createdAt, setCreatedAt] = useState("");
     const [loading, setLoading] = useState(true);
     const [approving, setApproving] = useState(false);
+    const [sources, setSources] = useState<SourceAttribution[]>([]);
 
     // Context from query params — passed by the list page
-    // TODO: remove once GET /v1/answers/{uuid} includes org + owner fields
+    // Context from query params — passed by the list page
     const orgId = searchParams.get("org_id") ?? "";
     const orgName = searchParams.get("org_name") ?? "Unknown organisation";
     const ownerKind = (searchParams.get("owner_kind") ?? "member") as "member" | "org_automation";
-    const ownerName = searchParams.get("owner") ?? null;
+    const ownerMemberId = searchParams.get("owner_member_id") ?? null;
 
-    // Fetch answer — GET /v1/answers/{answer_uuid}
+    // Fetch answer — GET /v2/orgs/{org_id}/answers/{uuid}
     // Returns AnswerPreviewResponse: { uuid, question, abstract, price, paid, answer? }
     useEffect(() => {
-        fetch(`/api/answers/${params.uuid}`)
+        fetch(`/api/orgs/${orgId}/answers/${params.uuid}`)
             .then((r) => r.json())
             .then((data) => {
                 setQuestion(data.question ?? "");
@@ -129,31 +104,20 @@ export default function QueryDetailPage({
                 setPaid(data.paid ?? false);
                 setAnswer(data.answer ?? null);
                 setCreatedAt(data.created_at ?? "");
+                setSources(data.sources ?? []);
             })
             .catch(() => { })
             .finally(() => setLoading(false));
-    }, [params.uuid]);
+    }, [params.uuid, orgId]);
 
-    // Check if current admin is a member of this org
-    // GET /v2/orgs → check if org_id is in user's memberships
-    const [isMemberOfOrg, setIsMemberOfOrg] = useState(false);
-    useEffect(() => {
-        if (!orgId) return;
-        fetch("/api/orgs")
-            .then((r) => r.json())
-            .then((data) => {
-                const ids: string[] = (data.memberships ?? []).map((m: { org_id: string }) => m.org_id);
-                setIsMemberOfOrg(ids.includes(orgId));
-            })
-            .catch(() => { });
-    }, [orgId]);
+    // Any org member can approve per spec — no membership check needed
 
     async function handleApprove() {
         setApproving(true);
         try {
-            // POST /v1/answers/{answer_uuid}/approve
+            // POST /v2/orgs/{org_id}/answers/{uuid}/approve
             // Returns AnswerApproveResponse: { uuid, paid, charged_now, answer }
-            const res = await fetch(`/api/answers/${params.uuid}/approve`, { method: "POST" });
+            const res = await fetch(`/api/orgs/${orgId}/answers/${params.uuid}/approve`, { method: "POST" });
             if (!res.ok) throw new Error("Failed");
             const data = await res.json();
             setAnswer(data.answer);
@@ -208,7 +172,7 @@ export default function QueryDetailPage({
                     </h1>
                 </div>
                 <div className="text-2xl font-semibold tabular-nums sm:shrink-0 text-foreground">
-                    {price ? formatCurrency(price) : "—"}
+                    {price ? formatTokens(price) : "—"}
                 </div>
             </div>
 
@@ -228,12 +192,14 @@ export default function QueryDetailPage({
                             API key
                         </Badge>
                     ) : (
-                        <span>{ownerName ?? "—"}</span>
+                        <span>{ownerMemberId ? `Member #${ownerMemberId}` : "—"}</span>
                     )}
                 </MetaItem>
-                <MetaItem icon={Clock} label="Submitted">
-                    {createdAt ? formatDate(createdAt) : "—"}
-                </MetaItem>
+                {createdAt && (
+                    <MetaItem icon={Clock} label="Submitted">
+                        {formatDate(createdAt)}
+                    </MetaItem>
+                )}
                 {paid && (
                     <MetaItem icon={CheckCircle} label="Approved">
                         Approved
@@ -254,6 +220,25 @@ export default function QueryDetailPage({
             )}
 
             {/* ── Full answer (paid) or Approve CTA (pending) ───────────────────── */}
+            {/* ── Sources ──────────────────────────────────────────────────────── */}
+            {sources.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-sm font-semibold">Data sources</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {sources.map((source) => (
+                            <div key={source.source_id} className="bg-card border p-3 flex items-center justify-between gap-3">
+                                <span className="text-sm font-medium truncate">{source.display_name}</span>
+                                {source.row_count != null && (
+                                    <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                                        {new Intl.NumberFormat("en-US").format(source.row_count)} rows
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {paid && answer ? (
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
@@ -277,7 +262,7 @@ export default function QueryDetailPage({
                         </p>
                     </div>
                 </div>
-            ) : !paid && isMemberOfOrg ? (
+            ) : !paid ? (
                 <div className={cn(
                     "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border p-4",
                     "border-warning/30 bg-warning/5"
@@ -285,18 +270,12 @@ export default function QueryDetailPage({
                     <div className="flex flex-col gap-0.5">
                         <p className="text-sm font-medium">Ready to approve</p>
                         <p className="text-xs text-muted-foreground">
-                            Approving will charge {price ? formatCurrency(price) : "—"} to {orgName}'s balance and release the full answer.
+                            Approving will charge {price ? formatTokens(price) : "—"} to {orgName}'s balance and release the full answer.
                         </p>
                     </div>
                     <Button onClick={handleApprove} disabled={approving} className="shrink-0">
                         {approving ? <><Loader size={14} className="animate-adxc-spin" /> Approving…</> : "Approve & charge"}
                     </Button>
-                </div>
-            ) : !paid && !isMemberOfOrg ? (
-                <div className="border p-4 text-sm text-muted-foreground">
-                    You are not a member of{" "}
-                    <span className="font-medium text-foreground">{orgName}</span>.
-                    Add yourself to this organisation to approve queries on their behalf.
                 </div>
             ) : null}
 
