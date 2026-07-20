@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
         const credentials = Buffer.from(`${username}:${password}`).toString("base64");
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_ADXC_API_URL}/v1/users/me`, {
+        const res = await fetch(`${process.env.ADXC_API_URL ?? "https://api.adxc.ai"}/v2/users/me`, {
             headers: {
                 Authorization: `Basic ${credentials}`,
             },

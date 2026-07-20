@@ -184,7 +184,7 @@ export default function AdminOverviewPage() {
     const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
     const [activeOrgs, setActiveOrgs] = useState<number | "…">("…");
 
-    // GET /v1/users → user count + recent users list
+    // GET /v2/admin/users → user count + recent users list
     useEffect(() => {
         fetch("/api/users")
             .then((r) => r.json())

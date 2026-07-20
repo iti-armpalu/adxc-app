@@ -443,7 +443,7 @@ export default function AdminUsersPage() {
     const [resetTarget, setResetTarget] = useState<User | null>(null);
 
     // Fetch real users on mount
-    // GET /v1/users → UserListResponse { users: AdminUserResponse[] }
+    // GET /v2/admin/users → UserListResponse { users: AdminUserResponse[] }
     useEffect(() => {
         fetch("/api/users")
             .then((r) => r.json())

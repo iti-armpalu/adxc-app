@@ -13,6 +13,7 @@ import {
     ShieldCheck,
     ShieldMinus,
     CreditCard,
+    AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +42,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import type {
     AdminOrgResponse,
     OrgMemberResponse,
-    AdminUserResponse,
 } from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
@@ -58,16 +59,16 @@ function formatDate(iso: string) {
     });
 }
 
-function formatCurrency(value: string) {
-    return new Intl.NumberFormat("en-US", {
-        style: "currency", currency: "USD", minimumFractionDigits: 2,
-    }).format(parseFloat(value));
+function formatTokens(value: string) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return "— tokens";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 function balanceColor(balance: string) {
     const n = parseFloat(balance);
     if (n <= 0) return "text-destructive-text";
-    if (n < 50) return "text-warning";
+    if (n < 100) return "text-warning";
     return "text-foreground";
 }
 
@@ -80,11 +81,11 @@ function initials(username: string) {
 // ---------------------------------------------------------------------------
 
 const TOPUP_SUGGESTIONS = [
-    { label: "$50", value: "50" },
-    { label: "$100", value: "100" },
-    { label: "$250", value: "250" },
-    { label: "$500", value: "500" },
-    { label: "$1000", value: "1000" },
+    { label: "100", value: "100" },
+    { label: "250", value: "250" },
+    { label: "500", value: "500" },
+    { label: "1,000", value: "1000" },
+    { label: "2,500", value: "2500" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -128,18 +129,18 @@ function TopUpDialog({
                 <DialogHeader>
                     <DialogTitle>Top up balance</DialogTitle>
                     <DialogDescription>
-                        Add credit to <span className="font-semibold text-foreground">{org.name}</span>.
+                        Add tokens to <span className="font-semibold text-foreground">{org.name}</span>.
                         <span className="block mt-1">
                             Current balance:{" "}
                             <span className={cn("font-semibold", balanceColor(org.balance))}>
-                                {formatCurrency(org.balance)}
+                                {formatTokens(org.balance)}
                             </span>
                         </span>
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
                     <div className="flex flex-col gap-3">
-                        <Label>Amount (USD)</Label>
+                        <Label>Amount in tokens</Label>
                         <div className="flex flex-wrap gap-2">
                             {TOPUP_SUGGESTIONS.map((s) => (
                                 <button
@@ -160,10 +161,10 @@ function TopUpDialog({
                         </div>
                         <div className="flex border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                             <span className="flex items-center px-3 bg-muted text-muted-foreground text-sm border-r border-input select-none">
-                                USD
+                                tokens
                             </span>
                             <input
-                                placeholder="0.00"
+                                placeholder="0"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                                 disabled={loading}
@@ -202,80 +203,71 @@ function AddMemberDialog({
     open,
     onOpenChange,
     onAdd,
-    existingMemberIds,
     orgId,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     onAdd: (member: OrgMemberResponse) => void;
-    existingMemberIds: string[];
     orgId: string;
 }) {
-    const [search, setSearch] = useState("");
-    const [selectedEmail, setSelectedEmail] = useState("");
-    const [selectedUsername, setSelectedUsername] = useState("");
+    // TODO: restore dropdown list once Rob adds email to GET /v2/users (UserListResponse)
+    // Until then, plain email input is used — AddMemberRequest requires email anyway
+    const [email, setEmail] = useState(""); 
     const [role, setRole] = useState<"member" | "org_admin">("member");
-    const [state, setState] = useState<"idle" | "loading" | "success">("idle");
-    const [allUsers, setAllUsers] = useState<AdminUserResponse[]>([]);
-
-    // Fetch real users when dialog opens
-    // GET /v1/users → UserListResponse
-    useEffect(() => {
-        if (open) {
-            fetch("/api/users")
-                .then((r) => r.json())
-                .then((data) => { if (data.users) setAllUsers(data.users); });
-        }
-    }, [open]);
+    const [state, setState] = useState<"idle" | "error" | "loading" | "success">("idle");
+    const [errorMsg, setErrorMsg] = useState("");
 
     const isLoading = state === "loading";
     const isSuccess = state === "success";
 
-    // Filter out already-members, match search against email or username
-    const filteredUsers = allUsers.filter(
-        (u) =>
-            !existingMemberIds.includes(u.id) &&
-            (
-                (u.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-                (u.username ?? "").toLowerCase().includes(search.toLowerCase())
-            )
-    );
-
-    function handleSelect(email: string, username: string) {
-        setSelectedEmail(email);
-        setSelectedUsername(username);
-        setSearch("");
-    }
-
     function handleClose() {
         onOpenChange(false);
         setTimeout(() => {
-            setSearch("");
-            setSelectedEmail("");
-            setSelectedUsername("");
+            setEmail("");
             setRole("member");
             setState("idle");
+            setErrorMsg("");
         }, 200);
     }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!selectedEmail) return;
+        if (!email.trim()) {
+            setState("error");
+            setErrorMsg("Email is required.");
+            return;
+        }
         setState("loading");
         try {
             // POST /v2/orgs/{org_id}/members — AddMemberRequest { email, role }
             const res = await fetch(`/api/orgs/${orgId}/members`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: selectedEmail, role }),
+                body: JSON.stringify({ email, role }),
             });
-            if (!res.ok) throw new Error("Failed");
+            if (res.status === 409) {
+                setState("error");
+                setErrorMsg("This user is already a member of this organisation.");
+                return;
+            }
+            if (res.status === 404) {
+                setState("error");
+                setErrorMsg("No user found with that email address.");
+                return;
+            }
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                setState("error");
+                setErrorMsg(body?.detail ?? "Failed to add member.");
+                return;
+            }
             const member = await res.json();
             onAdd(member);
             setState("success");
             setTimeout(handleClose, 900);
         } catch {
-            setState("idle");
+            setState("error");
+            setErrorMsg("Something went wrong. Please try again.");
         }
     }
 
@@ -285,76 +277,29 @@ function AddMemberDialog({
                 <DialogHeader>
                     <DialogTitle>Add member</DialogTitle>
                     <DialogDescription>
-                        Select a platform user to add to this organisation.
+                        Add a platform user to this organisation by email.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 pt-1">
-                    {selectedEmail ? (
-                        <div className="flex items-center justify-between gap-3 border bg-accent/40 px-3 py-2.5">
-                            <div className="flex items-center gap-2.5">
-                                <Avatar className="w-6 h-6 shrink-0">
-                                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                                        {selectedUsername.slice(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col min-w-0">
-                                    <span className="text-sm font-medium leading-tight">{selectedUsername}</span>
-                                    <span className="text-xs text-muted-foreground truncate">{selectedEmail || "—"}</span>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => { setSelectedEmail(""); setSelectedUsername(""); }}
-                                className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                            >
-                                Change
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2">
-                            <Label>User</Label>
-                            <div className="relative">
-                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                <Input
-                                    placeholder="Search by email or username…"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    autoFocus
-                                    className="pl-8 text-sm"
-                                />
-                            </div>
-                            <div className="border overflow-hidden max-h-[200px] overflow-y-auto">
-                                {filteredUsers.length === 0 ? (
-                                    <p className="text-xs text-muted-foreground text-center py-6">
-                                        {search ? "No users match your search." : "All users are already members."}
-                                    </p>
-                                ) : (
-                                    filteredUsers.map((user, i) => (
-                                        <button
-                                            key={user.id}
-                                            type="button"
-                                            onClick={() => handleSelect(user.email ?? "", user.username)}
-                                            className={cn(
-                                                "flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-accent transition-colors",
-                                                i < filteredUsers.length - 1 && "border-b border-border"
-                                            )}
-                                        >
-                                            <Avatar className="w-6 h-6 shrink-0">
-                                                <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                                                    {user.username.slice(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-sm leading-tight">{user.username}</span>
-                                                <span className="text-xs text-muted-foreground truncate">{user.email ?? "—"}</span>
-                                            </div>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                    {state === "error" && (
+                        <Alert variant="destructive" className="py-3">
+                            <AlertCircle size={15} />
+                            <AlertDescription>{errorMsg}</AlertDescription>
+                        </Alert>
                     )}
-
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="member-email">Email</Label>
+                        <Input
+                            id="member-email"
+                            type="email"
+                            placeholder="user@example.com"
+                            value={email}
+                            onChange={(e) => { setEmail(e.target.value); setState("idle"); }}
+                            disabled={isLoading || isSuccess}
+                            autoFocus
+                            className={cn(state === "error" && !email.trim() && "border-destructive")}
+                        />
+                    </div>
                     <div className="flex flex-col gap-1.5">
                         <Label>Role</Label>
                         <Select
@@ -371,13 +316,17 @@ function AddMemberDialog({
                             </SelectContent>
                         </Select>
                     </div>
-
                     <DialogFooter className="gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={!selectedEmail || isLoading || isSuccess} className="gap-2 min-w-[120px]">
-                            {isLoading ? "Adding…" : isSuccess ? "Added" : "Add member"}
+                        <Button type="submit" disabled={!email.trim() || isLoading || isSuccess} className="gap-2 min-w-[120px]">
+                            {isLoading
+                                ? <><Loader size={14} className="animate-adxc-spin" /> Adding…</>
+                                : isSuccess
+                                    ? <><Check size={14} /> Added</>
+                                    : "Add member"
+                            }
                         </Button>
                     </DialogFooter>
                 </form>
@@ -528,14 +477,14 @@ export default function OrgDetailPage({
                     <div className="bg-card border p-4 flex flex-col gap-1">
                         <span className="text-xs text-muted-foreground">Balance</span>
                         <span className={cn("text-2xl font-semibold tabular-nums", balanceColor(org.balance))}>
-                            {formatCurrency(org.balance)}
+                            {formatTokens(org.balance)}
                         </span>
                     </div>
                     <div className="bg-card border p-4 flex flex-col gap-1">
                         <span className="text-xs text-muted-foreground">Daily spend cap / member</span>
                         <span className="text-2xl font-semibold">
                             {org.daily_member_spend_cap
-                                ? formatCurrency(org.daily_member_spend_cap)
+                                ? formatTokens(org.daily_member_spend_cap)
                                 : <span className="text-muted-foreground text-lg">No limit</span>
                             }
                         </span>
@@ -671,7 +620,6 @@ export default function OrgDetailPage({
                 open={addMemberOpen}
                 onOpenChange={setAddMemberOpen}
                 onAdd={(member) => setMembers((prev) => [...prev, member])}
-                existingMemberIds={members.map((m) => m.user_id)}
                 orgId={id}
             />
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

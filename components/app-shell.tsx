@@ -27,18 +27,18 @@ export function AppShell({
 }) {
   const { variant: devVariant } = useShellVariant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [username, setUsername] = useState<string>("…");
+  const [name, setName] = useState<string>("…");
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
   const pathname = usePathname();
 
-  // Fetch real username on mount
+  // Fetch real user name on mount — GET /v2/users/me returns { name, email }
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
       .then((data) => {
-        if (data.username) setUsername(data.username);
+        if (data.name) setName(data.name);
       })
-      .catch(() => setUsername("unknown"));
+      .catch(() => setName("unknown"));
   }, []);
 
   // Fetch real org memberships on mount
@@ -94,7 +94,7 @@ export function AppShell({
         : "member";
 
   const sidebarUser: SidebarUser = {
-    username,
+    name,
     role: displayRole,
   };
 

@@ -1,3 +1,11 @@
+// ---------------------------------------------------------------------------
+// Admin queries page
+// No platform-wide answers endpoint exists in the spec.
+// Workaround: fan-out across GET /v2/orgs/{org_id}/answers for each org
+// the current admin user is a member of, then merge results.
+// Only shows answers from orgs the admin has a membership row in.
+// TODO: replace with GET /v2/admin/answers when Rob adds it
+// ---------------------------------------------------------------------------
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -9,6 +17,7 @@ import {
     ChevronDown,
     ChevronsUpDown,
     X,
+    Loader,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +42,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { AnswerListItemResponse, MembershipResponse } from "@/lib/api-types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,13 +51,13 @@ import { cn } from "@/lib/utils";
 type QueryRecord = {
     uuid: string;
     question: string;
-    abstract: string;
     price: string;
     paid: boolean;
-    org_id: number;
+    org_id: string;   // UUID string
     org_name: string;
     owner_kind: "member" | "org_automation";
-    owner_username: string | null;
+    owner_member_id: number | null;
+    owner_api_key_id: number | null;
     created_at: string;
     paid_at: string | null;
 };
@@ -57,146 +67,6 @@ type SortDir = "asc" | "desc";
 type StatusFilter = "all" | "pending" | "approved";
 type OrgFilter = string[];    // empty = all orgs
 type OwnerFilter = string[];  // empty = all owners; "__api_key__" = API key entries
-
-// ---------------------------------------------------------------------------
-// Mock data
-// TODO: replace with platform-wide queries list endpoint (not yet in spec)
-// Closest existing: GET /v2/orgs/{org_id}/answers — requires known org_id
-// Likely future: GET /v2/admin/queries
-// ---------------------------------------------------------------------------
-
-export const MOCK_QUERIES: QueryRecord[] = [
-    {
-        uuid: "ans_9a1b2c3d",
-        question: "What are the top purchase drivers for Gen Z consumers in the UK sportswear market?",
-        abstract: "Analysis of 12,400 YouGov panellists aged 18–26 identifies price-performance ratio, sustainability credentials, and influencer endorsement as the top three purchase drivers, with regional variation between London and Northern England.",
-        price: "12.50",
-        paid: false,
-        org_id: 1,
-        org_name: "Unilever Global Insights",
-        owner_kind: "member",
-        owner_username: "sarah.chen",
-        created_at: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_4e5f6g7h",
-        question: "How does Reddit sentiment on EV brands compare to X sentiment in Q1 2025?",
-        abstract: "Reddit shows 34% higher positive sentiment toward EV brands vs X, driven by r/electricvehicles community engagement. Tesla leads on both platforms; BYD shows strongest growth trajectory on Reddit.",
-        price: "8.00",
-        paid: false,
-        org_id: 2,
-        org_name: "Nike Consumer Intelligence",
-        owner_kind: "member",
-        owner_username: "james.whitfield",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_8i9j0k1l",
-        question: "What percentage of US households earning over $100k use meal-kit delivery services?",
-        abstract: "US Census and consumer panel data indicates 28.4% penetration among households earning $100k+, up from 19.1% in 2022. HelloFresh and Blue Apron hold combined 61% share of this segment.",
-        price: "6.50",
-        paid: true,
-        org_id: 4,
-        org_name: "Procter & Gamble Brand Strategy",
-        owner_kind: "member",
-        owner_username: "priya.nair",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 8 + 1000 * 60 * 5).toISOString(),
-    },
-    {
-        uuid: "ans_2m3n4o5p",
-        question: "Brand awareness scores for challenger fintech brands among 25–34 year olds in Australia.",
-        abstract: "Afterpay leads unaided awareness at 84% among 25–34 year olds. Revolut shows strongest 12-month growth at +18pp. Traditional bank digital offerings lag on spontaneous recall.",
-        price: "15.00",
-        paid: true,
-        org_id: 1,
-        org_name: "Unilever Global Insights",
-        owner_kind: "org_automation",
-        owner_username: null,
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 14 + 1000 * 60 * 7).toISOString(),
-    },
-    {
-        uuid: "ans_3q4r5s6t",
-        question: "How has Diageo's Guinness brand perception shifted among women aged 21–35 in the US since 2022?",
-        abstract: "Positive brand perception among US women 21–35 has grown from 31% to 49% since 2022, correlating with the 'Belong' campaign. Occasion-based associations have shifted from pub-only to social dining.",
-        price: "18.00",
-        paid: true,
-        org_id: 5,
-        org_name: "Diageo Audience Labs",
-        owner_kind: "member",
-        owner_username: "tom.eriksen",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 8).toISOString(),
-    },
-    {
-        uuid: "ans_7u8v9w0x",
-        question: "What are current consumer attitudes toward luxury resale platforms in Western Europe?",
-        abstract: "67% of luxury consumers in France, Germany and the UK view authenticated resale positively, up from 44% in 2021. Vestiaire Collective and Vinted lead aided awareness. Environmental motivation has overtaken value-seeking as primary driver.",
-        price: "22.00",
-        paid: false,
-        org_id: 8,
-        org_name: "LVMH Brand Intelligence",
-        owner_kind: "member",
-        owner_username: "isabelle.martin",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_1y2z3a4b",
-        question: "Spotify vs Apple Music brand loyalty metrics among premium subscribers in the Nordics.",
-        abstract: "Spotify retains 78% annual subscriber loyalty in the Nordics vs Apple Music at 61%. Podcast ecosystem cited as primary retention driver for Spotify; Apple Music loyalty correlates strongly with Apple device ownership.",
-        price: "9.50",
-        paid: true,
-        org_id: 10,
-        org_name: "Spotify Audience Research",
-        owner_kind: "member",
-        owner_username: "anna.lindqvist",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 36 + 1000 * 60 * 4).toISOString(),
-    },
-    {
-        uuid: "ans_5c6d7e8f",
-        question: "How do L'Oréal and Estée Lauder compare on skincare brand trust among Asian consumers in the UK?",
-        abstract: "L'Oréal leads overall skincare trust at 58% vs Estée Lauder at 51% among UK Asian consumers. However, Estée Lauder scores 14pp higher on perceived premium quality and 9pp higher on cultural relevance.",
-        price: "14.00",
-        paid: true,
-        org_id: 3,
-        org_name: "L'Oréal Market Research",
-        owner_kind: "member",
-        owner_username: "mei.zhang",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 48 + 1000 * 60 * 7).toISOString(),
-    },
-    {
-        uuid: "ans_9g0h1i2j",
-        question: "What is the share of voice for Heineken versus craft beer brands on social media in Germany?",
-        abstract: "Heineken holds 22% share of voice in German beer social conversations, trailing craft collective brands at 31% combined. Instagram and TikTok skew strongly toward craft; Heineken leads on X and YouTube.",
-        price: "11.00",
-        paid: false,
-        org_id: 9,
-        org_name: "Heineken Consumer Insights",
-        owner_kind: "org_automation",
-        owner_username: null,
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 56).toISOString(),
-        paid_at: null,
-    },
-    {
-        uuid: "ans_3k4l5m6n",
-        question: "Consumer willingness to pay premium for sustainable FMCG packaging in the UK.",
-        abstract: "42% of UK consumers indicate willingness to pay 10–15% premium for verified sustainable packaging. Willingness drops sharply above 20% premium. Category matters: household cleaning leads at 51%, confectionery trails at 28%.",
-        price: "10.00",
-        paid: true,
-        org_id: 7,
-        org_name: "Nestlé Strategic Insights",
-        owner_kind: "member",
-        owner_username: "david.okafor",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-        paid_at: new Date(Date.now() - 1000 * 60 * 60 * 72 + 1000 * 60 * 6).toISOString(),
-    },
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -265,8 +135,53 @@ export default function AdminQueriesPage() {
 
 function AdminQueriesPageInner() {
     const searchParams = useSearchParams();
-    const [queries] = useState<QueryRecord[]>(MOCK_QUERIES);
-    // TODO: replace with platform-wide queries list endpoint
+
+    const [queries, setQueries] = useState<QueryRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+
+    // Fan-out: GET /v2/orgs → memberships, then GET /v2/orgs/{org_id}/answers for each
+    // Merges all answers across orgs the current admin is a member of
+    // TODO: replace with GET /v2/admin/answers when Rob adds it
+    useEffect(() => {
+        fetch("/api/orgs")
+            .then((r) => r.json())
+            .then(async (data) => {
+                const memberships: MembershipResponse[] = data.memberships ?? [];
+                const results = await Promise.allSettled(
+                    memberships.map((m) =>
+                        fetch(`/api/orgs/${m.org_id}/answers`)
+                            .then((r) => r.json())
+                            .then((d) => ({ membership: m, answers: d.answers ?? [] }))
+                    )
+                );
+                const merged: QueryRecord[] = [];
+                results.forEach((result) => {
+                    if (result.status === "fulfilled") {
+                        const { membership, answers } = result.value;
+                        answers.forEach((a: AnswerListItemResponse) => {
+                            merged.push({
+                                uuid: a.uuid,
+                                question: a.question,
+                                price: a.price,
+                                paid: a.paid,
+                                org_id: membership.org_id,
+                                org_name: membership.org_name,
+                                owner_kind: a.owner_kind,
+                                owner_member_id: a.owner_member_id,
+                                owner_api_key_id: a.owner_api_key_id,
+                                created_at: a.created_at,
+                                paid_at: a.paid_at,
+                            });
+                        });
+                    }
+                });
+                merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                setQueries(merged);
+            })
+            .catch(() => setLoadError(true))
+            .finally(() => setLoading(false));
+    }, []);
 
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState<StatusFilter>("all");
@@ -296,8 +211,8 @@ function AdminQueriesPageInner() {
     const ownerOptions = useMemo(() => {
         const names = [...new Set(
             queries
-                .filter((q) => q.owner_kind === "member" && q.owner_username)
-                .map((q) => q.owner_username as string)
+                .filter((q) => q.owner_kind === "member" && q.owner_member_id != null)
+                .map((q) => String(q.owner_member_id))
         )].sort();
         return names;
     }, [queries]);
@@ -310,7 +225,7 @@ function AdminQueriesPageInner() {
         if (ownerFilter.length > 0) {
             list = list.filter((q) => {
                 if (ownerFilter.includes("__api_key__") && q.owner_kind === "org_automation") return true;
-                if (q.owner_username && ownerFilter.includes(q.owner_username)) return true;
+                if (q.owner_member_id != null && ownerFilter.includes(String(q.owner_member_id))) return true;
                 return false;
             });
         }
@@ -320,7 +235,7 @@ function AdminQueriesPageInner() {
                 (r) =>
                     r.question.toLowerCase().includes(q) ||
                     r.org_name.toLowerCase().includes(q) ||
-                    (r.owner_username ?? "").toLowerCase().includes(q)
+                    (r.owner_kind === "member" ? `member ${r.owner_member_id}` : "").toLowerCase().includes(q)
             );
         }
         return list.sort((a, b) => {
@@ -532,7 +447,7 @@ function AdminQueriesPageInner() {
                     </p>
                 )}
                 {filtered.map((query) => {
-                    const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner=${encodeURIComponent(query.owner_username ?? "")}&owner_kind=${query.owner_kind}`;
+                    const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                     return (
                         <Link
                             key={query.uuid}
@@ -593,7 +508,7 @@ function AdminQueriesPageInner() {
                             </TableRow>
                         )}
                         {filtered.map((query) => {
-                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner=${encodeURIComponent(query.owner_username ?? "")}&owner_kind=${query.owner_kind}`;
+                            const detailHref = `/admin/queries/${query.uuid}?org_id=${query.org_id}&org_name=${encodeURIComponent(query.org_name)}&owner_member_id=${query.owner_member_id ?? ""}&owner_kind=${query.owner_kind}`;
                             return (
                                 <TableRow key={query.uuid} className="group cursor-pointer hover:bg-accent/40">
                                     <TableCell className="pl-4 max-w-[360px] py-3">
@@ -612,7 +527,7 @@ function AdminQueriesPageInner() {
                                         {query.owner_kind === "org_automation" ? (
                                             <Badge variant="outline" className="text-xs font-normal text-muted-foreground">API key</Badge>
                                         ) : (
-                                            <span className="text-sm text-muted-foreground">{query.owner_username}</span>
+                                            <span className="text-sm text-muted-foreground">Member #{query.owner_member_id}</span>
                                         )}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import type { OrgListResponse, AdminOrgResponse } from "@/lib/api-types";
 
 // GET /api/admin/orgs → GET /v2/admin/orgs (undocumented but confirmed working)
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
         const data = await apiPost<AdminOrgResponse>("/v2/admin/orgs", body);
         return NextResponse.json(data, { status: 201 });
     } catch (err) {
+        if (err instanceof ApiError) {
+            return NextResponse.json({ error: err.message }, { status: err.status });
+        }
         console.error("POST /api/admin/orgs error:", err);
         return NextResponse.json({ error: "Failed to create organisation." }, { status: 500 });
     }

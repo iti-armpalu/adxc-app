@@ -49,7 +49,7 @@ export type OrgMembership = {
 };
 
 export type SidebarUser = {
-  username: string;
+  name: string;
   role: "platform_admin" | "org_admin" | "member";
 };
 
@@ -192,8 +192,8 @@ function SidebarFooter({ user }: { user: SidebarUser }) {
     router.push("/login");
   }
 
-  function initials(username: string) {
-    return username.slice(0, 2).toUpperCase();
+  function initials(name: string) {
+    return name.slice(0, 2).toUpperCase();
   }
 
   return (
@@ -201,12 +201,12 @@ function SidebarFooter({ user }: { user: SidebarUser }) {
       <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg group">
         <Avatar className="w-7 h-7 shrink-0">
           <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
-            {initials(user.username)}
+            {initials(user.name)}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-sidebar-foreground truncate">
-            {user.username}
+            {user.name}
           </p>
           <p className="text-xs text-sidebar-muted">
             {roleLabel(user.role)}

@@ -57,11 +57,11 @@ type SortDir = "asc" | "desc";
 // ---------------------------------------------------------------------------
 
 const SPEND_CAP_SUGGESTIONS = [
-    { label: "$10 / day", value: "10" },
-    { label: "$25 / day", value: "25" },
-    { label: "$50 / day", value: "50" },
-    { label: "$100 / day", value: "100" },
-    { label: "$250 / day", value: "250" },
+    { label: "100", value: "100" },
+    { label: "250", value: "250" },
+    { label: "500", value: "500" },
+    { label: "1,000", value: "1000" },
+    { label: "2,500", value: "2500" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -87,17 +87,14 @@ function initials(name: string) {
 
 function formatBalance(balance: string) {
     const n = parseFloat(balance);
-    return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-    }).format(n);
+    if (isNaN(n)) return "— tokens";
+    return `${new Intl.NumberFormat("en-US").format(n)} tokens`;
 }
 
 function balanceColor(balance: string) {
     const n = parseFloat(balance);
     if (n <= 0) return "text-destructive-text";
-    if (n < 50) return "text-warning";
+    if (n < 100) return "text-warning";
     return "text-foreground";
 }
 
@@ -239,7 +236,7 @@ function CreateOrgDialog({
                     <div className="flex flex-col gap-3">
                         <Label htmlFor="spend-cap">
                             Daily member spend cap{" "}
-                            <span className="text-muted-foreground font-normal">(optional)</span>
+                            <span className="text-muted-foreground font-normal">in tokens (optional)</span>
                         </Label>
                         {/* Suggestions */}
                         <div className="flex flex-wrap gap-2">
@@ -263,7 +260,7 @@ function CreateOrgDialog({
                         {/* Grouped input */}
                         <div className="flex border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                             <span className="flex items-center px-3 bg-muted text-muted-foreground text-sm border-r border-input select-none">
-                                USD
+                                tokens
                             </span>
                             <input
                                 id="spend-cap"
